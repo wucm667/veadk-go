@@ -14,10 +14,8 @@
 
 package agent
 
-import (
-	"veadk-go/log"
-)
+import "veadk-go/configs"
 
-func Run() {
-	log.Info("Veadk Agent started", "test", "test")
+func init() {
+	configs.SetupVeADKConfig()
 }

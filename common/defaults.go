@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package agent
+package common
 
-import (
-	"veadk-go/log"
+const (
+	DEFAULT_MODEL_AGENT_NAME     = "doubao-seed-1-6-250615"
+	DEFAULT_MODEL_AGENT_PROVIDER = "openai"
+	DEFAULT_MODEL_AGENT_API_BASE = "https://ark.cn-beijing.volces.com/api/v3/"
 )
 
-func Run() {
-	log.Info("Veadk Agent started", "test", "test")
-}
+// LOGGING
+const (
+	DEFAULT_LOGGING_LEVER = "info"
+)

@@ -12,12 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package agent
+package configs
 
-import (
-	"veadk-go/log"
-)
-
-func Run() {
-	log.Info("Veadk Agent started", "test", "test")
-}
+type VikingKnowledgebaseConfig struct{}

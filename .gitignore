@@ -16,3 +16,7 @@
 
 # Go workspace file
 go.work
+
+.idea/
+agent/.env
+agent/config.yaml

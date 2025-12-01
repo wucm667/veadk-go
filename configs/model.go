@@ -12,12 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package agent
+package configs
 
 import (
-	"veadk-go/log"
+	"sync"
+	"veadk-go/common"
 )
 
-func Run() {
-	log.Info("Veadk Agent started", "test", "test")
+type ModelConfig struct {
+	Name     string
+	Provider string
+	ApiBase  string
+	apiKey   string
+	mu       sync.Once // 用于缓存apiKey的同步
+}
+
+func (c *ModelConfig) MapEnvToConfig() {
+	c.Name = getEnv("MODEL_AGENT_NAME", common.DEFAULT_MODEL_AGENT_NAME, false)
+	c.Name = getEnv("MODEL_AGENT_PROVIDER", common.DEFAULT_MODEL_AGENT_PROVIDER, false)
+	c.Name = getEnv("MODEL_AGENT_API_BASE", common.DEFAULT_MODEL_AGENT_API_BASE, false)
 }

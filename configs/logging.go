@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package agent
+package configs
 
-import (
-	"veadk-go/log"
-)
+import "veadk-go/common"
 
-func Run() {
-	log.Info("Veadk Agent started", "test", "test")
+type Logging struct {
+	Level string
+}
+
+func (c *Logging) MapEnvToConfig() {
+	c.Level = getEnv("LOGGING_LEVEL", common.DEFAULT_LOGGING_LEVER, true)
 }
