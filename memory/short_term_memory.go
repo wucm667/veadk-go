@@ -15,7 +15,6 @@
 package memory
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/volcengine/veadk-go/configs"
@@ -23,75 +22,44 @@ import (
 	"google.golang.org/adk/session"
 )
 
-type BackendType string
+type ShortTermBackendType string
 
 const (
-	BackendLocal      BackendType = "local"
-	BackendPostgreSQL BackendType = "postgresql"
+	BackendShortTermLocal      ShortTermBackendType = "local"
+	BackendShortTermPostgreSQL ShortTermBackendType = "postgresql"
 )
 
-type ShortTermMemory struct {
-	// 配置字段
-	config         *configs.DatabaseConfig
-	sessionService session.Service
-}
-
-// NewShortTermMemory 创建ShortTermMemory实例
-func NewShortTermMemory(config *configs.DatabaseConfig) (*ShortTermMemory, error) {
-	if config == nil {
-		config = configs.GetGlobalConfig().Database
+// NewShortTermMemory creates a new short term memory service.
+// If backend is empty, it will use the default backend.
+// If config is nil, it will use the default config with backend
+// If config is not nil, it will use the config.
+func NewShortTermMemory(backend ShortTermBackendType, config interface{}) (session.Service, error) {
+	if backend == "" {
+		backend = BackendShortTermLocal
 	}
 
-	shortTermMemory := &ShortTermMemory{
-		config: config,
-	}
-
-	// 根据后端类型初始化SessionService
-	switch BackendType(config.ShortTermMemoryBackend) {
-	case BackendLocal:
-		shortTermMemory.sessionService = session.InMemoryService()
-	case BackendPostgreSQL:
-		pgBackend, err := short_term_memory_backends.NewPostgreSqlSTMBackend(config.Postgresql)
+	switch backend {
+	case BackendShortTermLocal:
+		return session.InMemoryService(), nil
+	case BackendShortTermPostgreSQL:
+		pgCfg := &short_term_memory_backends.PostgresqlBackendConfig{}
+		if config == nil {
+			pgCfg = &short_term_memory_backends.PostgresqlBackendConfig{
+				CommonDatabaseConfig: configs.GetGlobalConfig().Database.Postgresql,
+			}
+		} else {
+			var ok bool
+			pgCfg, ok = config.(*short_term_memory_backends.PostgresqlBackendConfig)
+			if !ok {
+				return nil, fmt.Errorf("postgresql backend requires *PostgresqlBackendConfig, got %T", config)
+			}
+		}
+		sessionService, err := short_term_memory_backends.NewPostgreSqlSTMBackend(pgCfg)
 		if err != nil {
 			return nil, err
 		}
-		shortTermMemory.sessionService, err = pgBackend.SessionService()
-		if err != nil {
-			return nil, err
-		}
+		return sessionService, nil
 	default:
-		return nil, fmt.Errorf("unsupported backend type: %s", config.ShortTermMemoryBackend)
+		return nil, fmt.Errorf("unsupported backend type: %s", backend)
 	}
-
-	return shortTermMemory, nil
-}
-
-func (stm *ShortTermMemory) SessionService() session.Service {
-	return stm.sessionService
-}
-
-func (stm *ShortTermMemory) CreateSession(ctx context.Context, appName, userID, sessionID string) (session.Session, error) {
-	// 创建新会话
-	newSession, err := stm.sessionService.Create(ctx, &session.CreateRequest{
-		AppName:   appName,
-		UserID:    userID,
-		SessionID: sessionID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("create session failed: %w", err)
-	}
-	return newSession.Session, nil
-}
-
-func (stm *ShortTermMemory) GetSession(ctx context.Context, appName, userID, sessionID string) (session.Session, error) {
-	getResp, err := stm.sessionService.Get(ctx, &session.GetRequest{
-		AppName:   appName,
-		UserID:    userID,
-		SessionID: sessionID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("get session failed: %w", err)
-	}
-
-	return getResp.Session, nil
 }

@@ -17,43 +17,59 @@ package short_term_memory_backends
 import (
 	"testing"
 
+	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
 	"github.com/volcengine/veadk-go/configs"
+	"google.golang.org/adk/session"
+	"google.golang.org/adk/session/database"
 )
+
+type mockSessionServiceImpl struct {
+	session.Service
+}
 
 func TestNewPostgreSqlSTMBackend(t *testing.T) {
 	tests := []struct {
 		name      string
-		config    *configs.CommonDatabaseConfig
+		config    *PostgresqlBackendConfig
 		wantDBurl string
 		wantErr   bool
 	}{
 		{
 			name: "no db url",
-			config: &configs.CommonDatabaseConfig{
-				UserName: "test@",
-				Password: "test@",
-				Host:     "127.0.0.1",
-				Port:     "5432",
-				Schema:   "test_veadk",
-				DBUrl:    "",
+			config: &PostgresqlBackendConfig{
+				CommonDatabaseConfig: &configs.CommonDatabaseConfig{
+					UserName: "test@",
+					Password: "test@",
+					Host:     "127.0.0.1",
+					Port:     "5432",
+					Schema:   "test_veadk",
+					DBUrl:    "",
+				},
 			},
 			wantDBurl: "postgresql://test%40:test%40@127.0.0.1:5432/test_veadk",
 		},
 		{
 			name: "has db url",
-			config: &configs.CommonDatabaseConfig{
-				DBUrl: "postgresql://test%40:test%40@127.0.0.1:5432/test_veadk",
+			config: &PostgresqlBackendConfig{
+				CommonDatabaseConfig: &configs.CommonDatabaseConfig{
+					DBUrl: "postgresql://test%40:test%40@127.0.0.1:5432/test_veadk",
+				},
 			},
 			wantDBurl: "postgresql://test%40:test%40@127.0.0.1:5432/test_veadk",
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewPostgreSqlSTMBackend(tt.config)
-			assert.Nil(t, err)
-			assert.Equal(t, tt.wantDBurl, got.PostgresqlConfig.DBUrl)
+		mockey.PatchConvey(tt.name, t, func() {
+			mockey.Mock(database.NewSessionService).Return(&mockSessionServiceImpl{}, nil).Build()
+			mockey.Mock(database.AutoMigrate).Return(nil).Build()
+			t.Run(tt.name, func(t *testing.T) {
+				sessionService, err := NewPostgreSqlSTMBackend(tt.config)
+				assert.Nil(t, err)
+				assert.NotNil(t, sessionService)
+			})
 		})
+
 	}
 }

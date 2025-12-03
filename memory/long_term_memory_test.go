@@ -19,28 +19,23 @@ import (
 
 	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
-	"github.com/volcengine/veadk-go/memory/short_term_memory_backends"
-	"google.golang.org/adk/session"
+	"github.com/volcengine/veadk-go/memory/long_term_memory_backends"
+	"google.golang.org/adk/memory"
 )
 
-type mockSessionServiceImpl struct {
-	session.Service
+type mockMemoryServiceImpl struct {
+	memory.Service
 }
 
-// mockSessionImpl 是 session.Session 接口的 mock 实现
-type mockSessionImpl struct {
-	session.Session
-}
-
-func TestNewShortTermMemory(t *testing.T) {
+func TestNewLongTermMemory(t *testing.T) {
 	tests := []struct {
 		name    string
-		backend ShortTermBackendType
+		backend LongTermBackendType
 		wantErr bool
 	}{
 		{
 			name:    "has user config",
-			backend: "postgresql",
+			backend: "viking",
 			wantErr: false,
 		},
 		{
@@ -58,11 +53,11 @@ func TestNewShortTermMemory(t *testing.T) {
 	for _, tt := range tests {
 		mockey.PatchConvey(tt.name, t, func() {
 			t.Run(tt.name, func(t *testing.T) {
-				mockey.Mock(short_term_memory_backends.NewPostgreSqlSTMBackend).Return(&mockSessionServiceImpl{}, nil).Build()
-				sessionService, err := NewShortTermMemory(tt.backend, nil)
+				mockey.Mock(long_term_memory_backends.NewVikingDbMemoryBackend).Return(&mockMemoryServiceImpl{}, nil).Build()
+				memoryService, err := NewLongTermMemoryService(tt.backend, nil)
 				assert.True(t, tt.wantErr == (err != nil))
 				if err == nil {
-					assert.NotNil(t, sessionService)
+					assert.NotNil(t, memoryService)
 				}
 			})
 		})

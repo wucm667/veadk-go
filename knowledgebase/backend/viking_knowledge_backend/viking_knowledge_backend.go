@@ -23,7 +23,8 @@ import (
 	"path/filepath"
 
 	"github.com/volcengine/veadk-go/integrations/ve_tos"
-	"github.com/volcengine/veadk-go/integrations/ve_viking_knowledge"
+	"github.com/volcengine/veadk-go/integrations/ve_viking"
+	"github.com/volcengine/veadk-go/integrations/ve_viking/viking_knowledge"
 	"github.com/volcengine/veadk-go/knowledgebase/interface"
 	"github.com/volcengine/veadk-go/knowledgebase/ktypes"
 	"github.com/volcengine/veadk-go/log"
@@ -31,11 +32,9 @@ import (
 )
 
 const (
-	VikingKnowledgeBaseIndexNotExistCode = 1000005
-	VikingKnowledgeBaseSuccessCode       = 0
-	TosBucketPath                        = "knowledgebase"
-	DefaultTopK                          = 5
-	DefaultChunkDiffusionCount           = 1
+	TosBucketPath              = "knowledgebase"
+	DefaultTopK                = 5
+	DefaultChunkDiffusionCount = 1
 )
 
 var NewVikingKnowledgeBaseErr = errors.New("NewVikingKnowledgeBase error")
@@ -56,13 +55,13 @@ type Config struct {
 }
 
 type VikingKnowledgeBackend struct {
-	viking *ve_viking_knowledge.Client
+	viking *viking_knowledge.Client
 	tos    *ve_tos.Client
 	config *Config
 }
 
 func NewVikingKnowledgeBackend(cfg *Config) (_interface.KnowledgeBackend, error) {
-	client, err := ve_viking_knowledge.New(&ve_viking_knowledge.Client{
+	client, err := viking_knowledge.New(&ve_viking.ClientConfig{
 		Index:        cfg.Index,
 		Project:      cfg.Project,
 		Region:       cfg.Region,
@@ -79,7 +78,7 @@ func NewVikingKnowledgeBackend(cfg *Config) (_interface.KnowledgeBackend, error)
 		return nil, fmt.Errorf("%w : get viking collection info error: %w", NewVikingKnowledgeBaseErr, err)
 	}
 
-	if collectionInfo.Code == VikingKnowledgeBaseIndexNotExistCode {
+	if collectionInfo.Code == ve_viking.VikingKnowledgeBaseIndexNotExistCode {
 		if cfg.CreateIfNotExist {
 			_, err := client.CollectionCreate("")
 			if err != nil {
@@ -129,7 +128,7 @@ func (v *VikingKnowledgeBackend) Search(query string, opts ...map[string]any) ([
 		return nil, fmt.Errorf("%w : %w", VikingKnowledgeBaseSearchErr, err)
 	}
 
-	if chunks.Code != VikingKnowledgeBaseSuccessCode {
+	if chunks.Code != ve_viking.VikingKnowledgeBaseSuccessCode {
 		return nil, fmt.Errorf("%w : with bad code %d, message:%s", VikingKnowledgeBaseSearchErr, chunks.Code, chunks.Message)
 	}
 

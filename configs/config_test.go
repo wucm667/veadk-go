@@ -18,48 +18,63 @@ import (
 	"os"
 	"testing"
 
-	"github.com/bytedance/mockey"
 	"github.com/stretchr/testify/assert"
 	"github.com/volcengine/veadk-go/common"
 )
 
 func Test_loadConfigFromProjectEnv(t *testing.T) {
-	mockey.PatchConvey("Test_loadConfigFromProjectEnv", t, func() {
-		mockey.Mock(os.Getwd).Return("../test", nil).Build()
-		_ = loadConfigFromProjectEnv()
-		assert.Equal(t, "doubao-seed-1-6-250615", os.Getenv(common.MODEL_AGENT_NAME))
+	fd, _ := os.Create(".env")
+	fd.WriteString("MODEL_AGENT_NAME=doubao-seed-1-6-250615")
+	fd.Close()
+	defer os.Remove(".env")
 
-		os.Setenv(common.MODEL_AGENT_NAME, "test")
-		_ = loadConfigFromProjectEnv()
-		assert.Equal(t, "test", os.Getenv(common.MODEL_AGENT_NAME))
-	})
+	_ = loadConfigFromProjectEnv()
+	assert.Equal(t, "doubao-seed-1-6-250615", os.Getenv(common.MODEL_AGENT_NAME))
+
+	os.Setenv(common.MODEL_AGENT_NAME, "test")
+	defer os.Unsetenv(common.MODEL_AGENT_NAME)
+	_ = loadConfigFromProjectEnv()
+	assert.Equal(t, "test", os.Getenv(common.MODEL_AGENT_NAME))
 }
 
 func Test_loadConfigFromProjectYaml(t *testing.T) {
-	mockey.PatchConvey("Test_loadConfigFromProjectYaml", t, func() {
-		mockey.Mock(os.Getwd).Return("../test", nil).Build()
-		_ = loadConfigFromProjectYaml()
-		assert.Equal(t, "doubao-seed-1-6-250615", os.Getenv(common.MODEL_AGENT_NAME))
+	fd, _ := os.Create("config.yaml")
+	fd.WriteString(`model:
+  agent:
+    name: "doubao-seed-1-6-250615"
+    api_base: "test"`)
+	fd.Close()
+	defer os.Remove("config.yaml")
+	_ = loadConfigFromProjectYaml()
+	assert.Equal(t, "doubao-seed-1-6-250615", os.Getenv(common.MODEL_AGENT_NAME))
 
-		os.Setenv(common.MODEL_AGENT_NAME, "test")
-		_ = loadConfigFromProjectYaml()
-		assert.Equal(t, "test", os.Getenv(common.MODEL_AGENT_NAME))
-	})
+	os.Setenv(common.MODEL_AGENT_NAME, "test")
+	defer os.Unsetenv(common.MODEL_AGENT_NAME)
+	_ = loadConfigFromProjectYaml()
+	assert.Equal(t, "test", os.Getenv(common.MODEL_AGENT_NAME))
 }
 
 func Test_getEnv(t *testing.T) {
-	mockey.PatchConvey("Test_getEnv", t, func() {
-		mockey.Mock(os.Getwd).Return("../test", nil).Build()
-		_ = loadConfigFromProjectYaml()
-		assert.Equal(t, "doubao-seed-1-6-250615", getEnv(common.MODEL_AGENT_NAME, "", false))
-		assert.Equal(t, "test", getEnv("test_key", "test", false))
-	})
+	fd, _ := os.Create("config.yaml")
+	fd.WriteString(`model:
+  agent:
+    name: "doubao-seed-1-6-250615"
+    api_base: "test"`)
+	fd.Close()
+	defer os.Remove("config.yaml")
+	_ = loadConfigFromProjectYaml()
+	assert.Equal(t, "doubao-seed-1-6-250615", getEnv(common.MODEL_AGENT_NAME, "", false))
+	assert.Equal(t, "test", getEnv("test_key", "test", false))
 }
 
 func TestSetupVeADKConfig(t *testing.T) {
-	mockey.PatchConvey("TestSetupVeADKConfig", t, func() {
-		mockey.Mock(os.Getwd).Return("../test", nil).Build()
-		_ = SetupVeADKConfig()
-		assert.Equal(t, "doubao-seed-1-6-250615", os.Getenv(common.MODEL_AGENT_NAME))
-	})
+	fd, _ := os.Create("config.yaml")
+	fd.WriteString(`model:
+  agent:
+    name: "doubao-seed-1-6-250615"
+    api_base: "test"`)
+	fd.Close()
+	defer os.Remove("config.yaml")
+	_ = SetupVeADKConfig()
+	assert.Equal(t, "doubao-seed-1-6-250615", os.Getenv(common.MODEL_AGENT_NAME))
 }

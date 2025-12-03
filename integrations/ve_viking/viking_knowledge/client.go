@@ -12,22 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ve_viking_knowledge
+package viking_knowledge
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
 
-	"github.com/volcengine/veadk-go/auth/veauth"
-	"github.com/volcengine/veadk-go/common"
-	"github.com/volcengine/veadk-go/configs"
 	"github.com/volcengine/veadk-go/integrations/ve_sign"
-	"github.com/volcengine/veadk-go/utils"
-	"gopkg.in/go-playground/validator.v8"
+	"github.com/volcengine/veadk-go/integrations/ve_viking"
 )
 
 const (
@@ -46,82 +38,18 @@ var (
 	ChunkListPath        = "/api/knowledge/point/list"
 )
 
-var VikingKnowledgeConfigErr = errors.New("viking Knowledge Config Error")
-
 // docs: https://www.volcengine.com/docs/84313/1254485?lang=zh#go-%E8%AF%AD%E8%A8%80%E8%B0%83%E7%94%A8%E5%85%A8%E6%B5%81%E7%A8%8B%E7%A4%BA%E4%BE%8B
 
 type Client struct {
-	AK           string `validate:"required"`
-	SK           string `validate:"required"`
-	SessionToken string `validate:"omitempty"`
-	ResourceID   string `validate:"omitempty"` //ResourceID or Index + Project
-	Index        string `validate:"omitempty"`
-	Project      string `validate:"required"`
-	Region       string `validate:"required"`
+	*ve_viking.ClientConfig
 }
 
-func (c *Client) validate() error {
-	var validate *validator.Validate
-	config := &validator.Config{TagName: "validate"}
-	validate = validator.New(config)
-	if err := validate.Struct(c); err != nil {
-		for _, err := range err.(validator.ValidationErrors) {
-			return fmt.Errorf("field %s validation failed: %s（rule: %s）", err.Field, err.Tag, err.Param)
-		}
+func New(cfg *ve_viking.ClientConfig) (*Client, error) {
+	cfg, err := ve_viking.NewConfig(cfg)
+	if err != nil {
+		return nil, err
 	}
-	if c.ResourceID == "" && (c.Project == "" || c.Index == "") {
-		return fmt.Errorf("%w: knowledge ResourceID or Index and Project is nil", VikingKnowledgeConfigErr)
-	}
-	if c.Index != "" {
-		if err := precheckIndexNaming(c.Index); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func New(cfg *Client) (*Client, error) {
-	if cfg == nil {
-		return nil, fmt.Errorf("%w: viking knowledge confgi is nil", VikingKnowledgeConfigErr)
-	}
-	if cfg.AK == "" {
-		cfg.AK = utils.GetEnvWithDefault(common.VOLCENGINE_ACCESS_KEY, configs.GetGlobalConfig().Volcengine.AK)
-	}
-	if cfg.SK == "" {
-		cfg.SK = utils.GetEnvWithDefault(common.VOLCENGINE_SECRET_KEY, configs.GetGlobalConfig().Volcengine.SK)
-	}
-	if cfg.AK == "" || cfg.SK == "" {
-		iam, err := veauth.GetCredentialFromVeFaaSIAM()
-		if err != nil {
-			return nil, fmt.Errorf("%w : GetCredential error: %w", VikingKnowledgeConfigErr, err)
-		}
-		cfg.AK = iam.AccessKeyID
-		cfg.SK = iam.SecretAccessKey
-		cfg.SessionToken = iam.SessionToken
-	}
-
-	if cfg.Project == "" {
-		cfg.Project = utils.GetEnvWithDefault(common.DATABASE_VIKING_PROJECT, configs.GetGlobalConfig().Database.Viking.Project, common.DEFAULT_DATABASE_VIKING_PROJECT)
-	}
-	if cfg.Region == "" {
-		cfg.Region = utils.GetEnvWithDefault(common.DATABASE_VIKING_REGION, configs.GetGlobalConfig().Database.Viking.Region, common.DEFAULT_DATABASE_VIKING_REGION)
-	}
-
-	if err := cfg.validate(); err != nil {
-		return nil, fmt.Errorf("%w : %w", VikingKnowledgeConfigErr, err)
-	}
-	return cfg, nil
-}
-
-func (c *Client) buildHeaders() map[string]string {
-	headers := map[string]string{
-		"Content-Type": "application/json",
-		"Accept":       "application/json",
-	}
-	if c.SessionToken != "" {
-		headers["X-Security-Token"] = c.SessionToken
-	}
-	return headers
+	return &Client{ClientConfig: cfg}, nil
 }
 
 func (c *Client) generateSearchKnowledgeReqParams(query string, topK int32, metadata map[string]any, rerank bool, chunkDiffusionCount int32) CollectionSearchKnowledgeRequest {
@@ -174,21 +102,21 @@ func (c *Client) SearchKnowledge(query string, topK int32, chunkDiffusionCount i
 		Path:    SearchKnowledgePath,
 		Service: VikingKnowledgeService,
 		Region:  c.Region,
-		Header:  c.buildHeaders(),
+		Header:  ve_viking.BuildHeaders(c.ClientConfig),
 		Body:    searchKnowledgeReqParams,
 	}.DoRequest()
 	if err != nil {
 		return nil, err
 	}
 	var searchKnowledgeResp *CollectionSearchKnowledgeResponse
-	err = ParseJsonUseNumber(respBody, &searchKnowledgeResp)
+	err = ve_viking.ParseJsonUseNumber(respBody, &searchKnowledgeResp)
 	if err != nil {
 		return nil, err
 	}
 	return searchKnowledgeResp, nil
 }
 
-func (c *Client) CollectionDelete() (*CommonResponse, error) {
+func (c *Client) CollectionDelete() (*ve_viking.CommonResponse, error) {
 	respBody, err := ve_sign.VeRequest{
 		AK:      c.AK,
 		SK:      c.SK,
@@ -197,7 +125,7 @@ func (c *Client) CollectionDelete() (*CommonResponse, error) {
 		Path:    CollectionDeletePath,
 		Service: VikingKnowledgeService,
 		Region:  c.Region,
-		Header:  c.buildHeaders(),
+		Header:  ve_viking.BuildHeaders(c.ClientConfig),
 		Body: CollectionNameProjectRequest{
 			Name:    c.Index,
 			Project: c.Project,
@@ -206,15 +134,15 @@ func (c *Client) CollectionDelete() (*CommonResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	var resp *CommonResponse
-	err = ParseJsonUseNumber(respBody, &resp)
+	var resp *ve_viking.CommonResponse
+	err = ve_viking.ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-func (c *Client) CollectionCreate(descriptions ...string) (*CommonResponse, error) {
+func (c *Client) CollectionCreate(descriptions ...string) (*ve_viking.CommonResponse, error) {
 	var description string
 	if len(descriptions) == 0 || descriptions[0] == "" {
 		description = "Created by Volcengine Agent Development Kit (VeADK)."
@@ -229,7 +157,7 @@ func (c *Client) CollectionCreate(descriptions ...string) (*CommonResponse, erro
 		Path:    CollectionCreatePath,
 		Service: VikingKnowledgeService,
 		Region:  c.Region,
-		Header:  c.buildHeaders(),
+		Header:  ve_viking.BuildHeaders(c.ClientConfig),
 		Body: CollectionCreateRequest{
 			Name:        c.Index,
 			Project:     c.Project,
@@ -239,15 +167,15 @@ func (c *Client) CollectionCreate(descriptions ...string) (*CommonResponse, erro
 	if err != nil {
 		return nil, err
 	}
-	var resp *CommonResponse
-	err = ParseJsonUseNumber(respBody, &resp)
+	var resp *ve_viking.CommonResponse
+	err = ve_viking.ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-func (c *Client) CollectionInfo() (*CommonResponse, error) {
+func (c *Client) CollectionInfo() (*ve_viking.CommonResponse, error) {
 	respBody, err := ve_sign.VeRequest{
 		AK:      c.AK,
 		SK:      c.SK,
@@ -256,7 +184,7 @@ func (c *Client) CollectionInfo() (*CommonResponse, error) {
 		Path:    CollectionInfoPath,
 		Service: VikingKnowledgeService,
 		Region:  c.Region,
-		Header:  c.buildHeaders(),
+		Header:  ve_viking.BuildHeaders(c.ClientConfig),
 		Body: CollectionNameProjectRequest{
 			Name:    c.Index,
 			Project: c.Project,
@@ -265,15 +193,15 @@ func (c *Client) CollectionInfo() (*CommonResponse, error) {
 	if err != nil && len(respBody) == 0 {
 		return nil, err
 	}
-	var resp *CommonResponse
-	err = ParseJsonUseNumber(respBody, &resp)
+	var resp *ve_viking.CommonResponse
+	err = ve_viking.ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-func (c *Client) DocumentAddTOS(tosPath string) (*CommonResponse, error) {
+func (c *Client) DocumentAddTOS(tosPath string) (*ve_viking.CommonResponse, error) {
 	respBody, err := ve_sign.VeRequest{
 		AK:      c.AK,
 		SK:      c.SK,
@@ -282,7 +210,7 @@ func (c *Client) DocumentAddTOS(tosPath string) (*CommonResponse, error) {
 		Path:    DocumentAddPath,
 		Service: VikingKnowledgeService,
 		Region:  c.Region,
-		Header:  c.buildHeaders(),
+		Header:  ve_viking.BuildHeaders(c.ClientConfig),
 		Body: DocumentAddRequest{
 			CollectionName: c.Index,
 			Project:        c.Project,
@@ -293,15 +221,15 @@ func (c *Client) DocumentAddTOS(tosPath string) (*CommonResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	var resp *CommonResponse
-	err = ParseJsonUseNumber(respBody, &resp)
+	var resp *ve_viking.CommonResponse
+	err = ve_viking.ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-func (c *Client) DocumentDelete(docID string) (*CommonResponse, error) {
+func (c *Client) DocumentDelete(docID string) (*ve_viking.CommonResponse, error) {
 	respBody, err := ve_sign.VeRequest{
 		AK:      c.AK,
 		SK:      c.SK,
@@ -310,7 +238,7 @@ func (c *Client) DocumentDelete(docID string) (*CommonResponse, error) {
 		Path:    DocumentDeletePath,
 		Service: VikingKnowledgeService,
 		Region:  c.Region,
-		Header:  c.buildHeaders(),
+		Header:  ve_viking.BuildHeaders(c.ClientConfig),
 		Body: DocumentDeleteRequest{
 			CollectionName: c.Index,
 			Project:        c.Project,
@@ -320,8 +248,8 @@ func (c *Client) DocumentDelete(docID string) (*CommonResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	var resp *CommonResponse
-	err = ParseJsonUseNumber(respBody, &resp)
+	var resp *ve_viking.CommonResponse
+	err = ve_viking.ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +265,7 @@ func (c *Client) DocumentList(offset int32, limit int32) (*DocumentListResponse,
 		Path:    DocumentListPath,
 		Service: VikingKnowledgeService,
 		Region:  c.Region,
-		Header:  c.buildHeaders(),
+		Header:  ve_viking.BuildHeaders(c.ClientConfig),
 		Body: CommonListRequest{
 			CollectionName: c.Index,
 			Project:        c.Project,
@@ -349,7 +277,7 @@ func (c *Client) DocumentList(offset int32, limit int32) (*DocumentListResponse,
 		return nil, err
 	}
 	var resp *DocumentListResponse
-	err = ParseJsonUseNumber(respBody, &resp)
+	err = ve_viking.ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
 		return nil, err
 	}
@@ -365,7 +293,7 @@ func (c *Client) ChunkList(offset int32, limit int32) (*ChunkListResponse, error
 		Path:    ChunkListPath,
 		Service: VikingKnowledgeService,
 		Region:  c.Region,
-		Header:  c.buildHeaders(),
+		Header:  ve_viking.BuildHeaders(c.ClientConfig),
 		Body: CommonListRequest{
 			CollectionName: c.Index,
 			Project:        c.Project,
@@ -377,35 +305,9 @@ func (c *Client) ChunkList(offset int32, limit int32) (*ChunkListResponse, error
 		return nil, err
 	}
 	var resp *ChunkListResponse
-	err = ParseJsonUseNumber(respBody, &resp)
+	err = ve_viking.ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
-}
-
-func precheckIndexNaming(index string) error {
-	var indexNameRe = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
-	if l := len(index); !(l > 0 && l <= 128) {
-		return fmt.Errorf("%w: index length out of range (must be 1–128)", VikingKnowledgeConfigErr)
-	}
-	if !indexNameRe.MatchString(index) {
-		return fmt.Errorf("%w: index contains characters other than letters、numbers and _", VikingKnowledgeConfigErr)
-	}
-	return nil
-}
-
-func ParseJsonUseNumber(input []byte, target interface{}) error {
-	var d *json.Decoder
-	var err error
-	d = json.NewDecoder(bytes.NewBuffer(input))
-	if d == nil {
-		return fmt.Errorf("ParseJsonUseNumber init NewDecoder failed")
-	}
-	d.UseNumber()
-	err = d.Decode(&target)
-	if err != nil {
-		return fmt.Errorf("ParseJsonUseNumber Decode failed, err: %s", err.Error())
-	}
-	return nil
 }

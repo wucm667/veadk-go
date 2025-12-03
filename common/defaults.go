@@ -29,12 +29,6 @@ const DEFAULT_LLMAGENT_NAME = "veAgent"
 
 const VEFAAS_IAM_CRIDENTIAL_PATH = "/var/run/secrets/iam/credential"
 
-// MEMORY
-const (
-	DEFAULT_SHORT_TERM_MEMORY_BACKEND = "local"
-	DEFAULT_GORM_LOG_LEVEL            = "error"
-)
-
 // VikingKnowledgeBase
 const (
 	DEFAULT_DATABASE_VIKING_PROJECT = "default"

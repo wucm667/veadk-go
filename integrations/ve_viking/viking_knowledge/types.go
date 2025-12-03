@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ve_viking_knowledge
+package viking_knowledge
 
 type CollectionSearchKnowledgeRequest struct {
 	Name           string          `json:"name,omitempty"`
@@ -149,14 +149,6 @@ type ChunkPositions struct {
 	PageNo []int       `json:"page_no"`
 	BBox   [][]float64 `json:"bbox"`
 }
-
-type CommonResponse struct {
-	Code      int64          `json:"code"`
-	Message   string         `json:"message,omitempty"`
-	Data      map[string]any `json:"data,omitempty"`
-	RequestID string         `json:"request_id,omitempty"`
-}
-
 type DocumentListResponse struct {
 	Code      int64                    `json:"code"`
 	Message   string                   `json:"message,omitempty"`

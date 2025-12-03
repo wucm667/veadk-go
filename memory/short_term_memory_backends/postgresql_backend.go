@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"sync"
 
 	"github.com/volcengine/veadk-go/configs"
 	"github.com/volcengine/veadk-go/log"
@@ -29,20 +28,13 @@ import (
 	"gorm.io/gorm"
 )
 
-type PostgreSqlSTMBackend struct {
-	// 配置字段
-	PostgresqlConfig *configs.CommonDatabaseConfig
-
-	sessionService session.Service
-	once           sync.Once
+type PostgresqlBackendConfig struct {
+	*configs.CommonDatabaseConfig
 }
 
-func NewPostgreSqlSTMBackend(config *configs.CommonDatabaseConfig) (*PostgreSqlSTMBackend, error) {
+func NewPostgreSqlSTMBackend(config *PostgresqlBackendConfig) (session.Service, error) {
 	if config == nil {
 		return nil, fmt.Errorf("postgresql config is nil")
-	}
-	backend := &PostgreSqlSTMBackend{
-		PostgresqlConfig: config,
 	}
 
 	if config.DBUrl != "" {
@@ -59,44 +51,24 @@ func NewPostgreSqlSTMBackend(config *configs.CommonDatabaseConfig) (*PostgreSqlS
 		encodedUsername := url.QueryEscape(config.UserName)
 		encodedPassword := url.QueryEscape(config.Password)
 
-		backend.PostgresqlConfig.DBUrl = fmt.Sprintf(
+		config.DBUrl = fmt.Sprintf(
 			"postgresql://%s:%s@%s:%s/%s",
 			encodedUsername, encodedPassword,
 			config.Host, config.Port, config.Schema,
 		)
 	}
 
-	return backend, nil
-}
-
-func (b *PostgreSqlSTMBackend) SessionService() (session.Service, error) {
-	var initErr error
-	b.once.Do(func() {
-		// 初始化DatabaseSessionService（仅执行一次）
-		level, err := zapcore.ParseLevel(b.PostgresqlConfig.GormLogLevel)
-		if err != nil {
-			level = zapcore.InfoLevel
-		}
-		b.sessionService, initErr = database.NewSessionService(
-			postgres.Open(b.PostgresqlConfig.DBUrl),
-			&gorm.Config{PrepareStmt: true, Logger: log.NewLogger(level)},
-		)
-		if initErr != nil {
-			log.Error(fmt.Sprintf("init DatabaseSessionService failed: %v", initErr))
-		} else {
-			log.Info(fmt.Sprintf("PostgreSQL SessionService initialized with URL: %s", b.PostgresqlConfig.DBUrl))
-		}
-		if initErr = database.AutoMigrate(b.sessionService); initErr != nil {
-			log.Error(fmt.Sprintf("AutoMigrate DatabaseSessionService failed: %v", initErr))
-		}
-	})
-
-	if initErr != nil {
-		return nil, initErr
+	sessionService, err := database.NewSessionService(
+		postgres.Open(config.DBUrl),
+		&gorm.Config{PrepareStmt: true, Logger: log.NewLogger(zapcore.FatalLevel)},
+	)
+	if err != nil {
+		log.Error(fmt.Sprintf("init DatabaseSessionService failed: %v", err))
+		return nil, err
 	}
-	return b.sessionService, nil
-}
+	if initErr := database.AutoMigrate(sessionService); initErr != nil {
+		log.Error(fmt.Sprintf("AutoMigrate DatabaseSessionService failed: %v", initErr))
+	}
 
-type BaseShortTermMemoryBackend interface {
-	SessionService() (session.Service, error)
+	return sessionService, nil
 }

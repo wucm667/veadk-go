@@ -19,33 +19,27 @@ import (
 )
 
 type CommonDatabaseConfig struct {
-	UserName     string
-	Password     string
-	Host         string
-	Port         string
-	Schema       string
-	DBUrl        string
-	GormLogLevel string
+	UserName string
+	Password string
+	Host     string
+	Port     string
+	Schema   string
+	DBUrl    string
 }
 type DatabaseConfig struct {
-	ShortTermMemoryBackend string
-	Postgresql             *CommonDatabaseConfig
-	Viking                 *VikingKnowledgeBaseConfig `yaml:"viking"`
-	TOS                    *TosClientConf             `yaml:"tos"`
+	Postgresql *CommonDatabaseConfig
+	Viking     *VikingConfig  `yaml:"viking"`
+	TOS        *TosClientConf `yaml:"tos"`
 }
 
 func (c *DatabaseConfig) MapEnvToConfig() {
-	c.ShortTermMemoryBackend = getEnv(common.DATABASE_SHORT_TERM_MEMORY_BACKEND, common.DEFAULT_SHORT_TERM_MEMORY_BACKEND, true)
-	switch c.ShortTermMemoryBackend {
-	case "postgresql":
-		c.Postgresql.UserName = getEnv(common.DATABASE_POSTGRESQL_USERNAME, "", true)
-		c.Postgresql.Password = getEnv(common.DATABASE_POSTGRESQL_PASSWORD, "", true)
-		c.Postgresql.Host = getEnv(common.DATABASE_POSTGRESQL_HOST, "", true)
-		c.Postgresql.Port = getEnv(common.DATABASE_POSTGRESQL_PORT, "", true)
-		c.Postgresql.Schema = getEnv(common.DATABASE_POSTGRESQL_SCHEMA, "", true)
-		c.Postgresql.DBUrl = getEnv(common.DATABASE_POSTGRESQL_DBURL, "", true)
-		c.Postgresql.GormLogLevel = getEnv(common.DATABASE_POSTGRESQL_GORMLOGLEVEL, common.DEFAULT_GORM_LOG_LEVEL, true)
-	}
+	c.Postgresql.UserName = getEnv(common.DATABASE_POSTGRESQL_USERNAME, "", true)
+	c.Postgresql.Password = getEnv(common.DATABASE_POSTGRESQL_PASSWORD, "", true)
+	c.Postgresql.Host = getEnv(common.DATABASE_POSTGRESQL_HOST, "", true)
+	c.Postgresql.Port = getEnv(common.DATABASE_POSTGRESQL_PORT, "", true)
+	c.Postgresql.Schema = getEnv(common.DATABASE_POSTGRESQL_SCHEMA, "", true)
+	c.Postgresql.DBUrl = getEnv(common.DATABASE_POSTGRESQL_DBURL, "", true)
+
 	c.Viking.MapEnvToConfig()
 	c.TOS.MapEnvToConfig()
 }

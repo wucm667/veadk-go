@@ -12,19 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package configs
+package utils
 
-import (
-	"github.com/volcengine/veadk-go/common"
-	"github.com/volcengine/veadk-go/utils"
-)
+import "time"
 
-type VikingKnowledgeBaseConfig struct {
-	Project string `yaml:"project"`
-	Region  string `yaml:"region"`
-}
-
-func (v *VikingKnowledgeBaseConfig) MapEnvToConfig() {
-	v.Project = utils.GetEnvWithDefault(common.DATABASE_VIKING_PROJECT)
-	v.Region = utils.GetEnvWithDefault(common.DATABASE_VIKING_REGION)
+func ConvertTimeMillToTime(timeMill int64) time.Time {
+	sec := timeMill / 1000
+	nsec := (timeMill % 1000) * 1e6
+	return time.Unix(sec, nsec)
 }

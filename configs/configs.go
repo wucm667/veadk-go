@@ -71,7 +71,7 @@ func SetupVeADKConfig() error {
 		LOGGING:     &Logging{},
 		Database: &DatabaseConfig{
 			Postgresql: &CommonDatabaseConfig{},
-			Viking:     &VikingKnowledgeBaseConfig{},
+			Viking:     &VikingConfig{},
 			TOS:        &TosClientConf{},
 		},
 	}
