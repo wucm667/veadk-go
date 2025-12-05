@@ -77,6 +77,8 @@ func SetupVeADKConfig() error {
 	}
 	globalConfig.LOGGING.MapEnvToConfig()
 	globalConfig.Database.MapEnvToConfig()
+	globalConfig.VikingKnowledgeBase.MapEnvToConfig()
+	globalConfig.Volcengine.MapEnvToConfig()
 	return nil
 }
 

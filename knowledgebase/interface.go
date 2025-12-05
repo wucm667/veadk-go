@@ -14,10 +14,10 @@
 
 package knowledgebase
 
-type Knowledge interface {
+type KnowledgeBase interface {
 	Index() string
-	AddFromDirectory(directory string, opts map[string]any) bool
-	AddFromFiles(files []string, opts map[string]any) bool
-	AddFromText(text []string, opts map[string]any) bool
-	Search(query string, topK int, opts map[string]any) []Entry
+	Search(query string) ([]KnowledgeEntry, error)
+	//AddFromDirectory(directory string, opts map[string]any) error
+	//AddFromFiles(files []string, opts map[string]any) error
+	//AddFromText(text []string, opts map[string]any) error
 }

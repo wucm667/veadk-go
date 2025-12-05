@@ -17,13 +17,11 @@ package configs
 import "github.com/volcengine/veadk-go/common"
 
 type VikingKnowledgeBaseConfig struct {
-	ResourceID string //ResourceID or Index + Project
-	Index      string
-	Project    string
+	Project string `yaml:"project"`
+	Region  string `yaml:"region"`
 }
 
 func (v *VikingKnowledgeBaseConfig) MapEnvToConfig() {
-	v.ResourceID = getEnv(common.VIKING_KNOWLEDGE_RESOURCE_ID, "", true)
-	v.Index = getEnv(common.VIKING_KNOWLEDGE_NAME, "", true)
-	v.Project = getEnv(common.VIKING_KNOWLEDGE_PROJECT, "", true)
+	v.Project = getEnv(common.DATABASE_VIKING_PROJECT, "", true)
+	v.Region = getEnv(common.DATABASE_VIKING_REGION, "", true)
 }

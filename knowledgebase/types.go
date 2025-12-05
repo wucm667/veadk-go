@@ -17,8 +17,13 @@ package knowledgebase
 type KnowledgeBackendType string
 
 const (
-	VikingBackend KnowledgeBackendType = "viking"
-	//RedisBackend    KnowledgeBackendType = "redis"
-	//LocalBackend      KnowledgeBackendType = "local"
-	//OpensearchBackend KnowledgeBackendType = "opensearch"
+	VikingBackend     KnowledgeBackendType = "viking"
+	RedisBackend      KnowledgeBackendType = "redis"
+	LocalBackend      KnowledgeBackendType = "local"
+	OpensearchBackend KnowledgeBackendType = "opensearch"
 )
+
+type KnowledgeEntry struct {
+	Content  string
+	Metadata map[string]any
+}

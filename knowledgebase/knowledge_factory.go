@@ -16,21 +16,13 @@ package knowledgebase
 
 import "errors"
 
-type Config struct {
-	Name          string
-	Description   string
-	BackendType   KnowledgeBackendType
-	BackendConfig map[string]any
-	TopK          int
-	AppName       string
-	Index         string
-}
-
-func BuildKnowledgeBase(cfg Config) (*Knowledge, error) {
-	switch cfg.BackendType {
+func GetKnowledgeBackend(backend KnowledgeBackendType) (KnowledgeBase, error) {
+	switch backend {
 	case VikingBackend:
-		return NewInMemoryKnowledgeBackend(kb.Index)
+		return nil, nil
+	case RedisBackend, LocalBackend, OpensearchBackend:
+		return nil, errors.New("Unsupported knowledge backend: " + string(backend))
 	default:
-		return nil, errors.New("Unsupported knowledge backend: " + string(cfg.BackendType))
+		return nil, errors.New("Invalid knowledge backend: " + string(backend))
 	}
 }

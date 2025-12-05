@@ -34,3 +34,11 @@ const (
 	DEFAULT_SHORT_TERM_MEMORY_BACKEND = "local"
 	DEFAULT_GORM_LOG_LEVEL            = "error"
 )
+
+// VikingKnowledgeBase
+const (
+	DEFAULT_DATABASE_VIKING_PROJECT = "default"
+	DEFAULT_DATABASE_VIKING_REGION  = "cn-beijing"
+	DEFAULT_TOPK                    = 5
+	DEFAULT_CHUNK_
+)
