@@ -14,16 +14,16 @@
 
 package knowledgebase
 
-type KnowledgeBackendType string
+type Option func(*KnowledgeBase)
 
-const (
-	VikingBackend     KnowledgeBackendType = "viking"
-	RedisBackend      KnowledgeBackendType = "redis"
-	LocalBackend      KnowledgeBackendType = "local"
-	OpensearchBackend KnowledgeBackendType = "opensearch"
-)
+func WithName(name string) Option {
+	return func(k *KnowledgeBase) { k.Name = name }
+}
 
-type KnowledgeEntry struct {
-	Content  string
-	Metadata map[string]any
+func WithDescription(desc string) Option {
+	return func(k *KnowledgeBase) { k.Description = desc }
+}
+
+func WithBackendConfig[C any](cfg C) Option {
+	return func(k *KnowledgeBase) { k.BackendConfig = cfg }
 }

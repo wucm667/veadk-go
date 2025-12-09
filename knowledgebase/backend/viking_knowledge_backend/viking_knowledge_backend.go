@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package knowledgebase
+package viking_knowledge_backend
 
 import (
 	"encoding/json"
@@ -24,6 +24,8 @@ import (
 
 	"github.com/volcengine/veadk-go/integrations/ve_tos"
 	"github.com/volcengine/veadk-go/integrations/ve_viking_knowledge"
+	"github.com/volcengine/veadk-go/knowledgebase/interface"
+	"github.com/volcengine/veadk-go/knowledgebase/ktypes"
 	"github.com/volcengine/veadk-go/log"
 	"github.com/volcengine/veadk-go/utils"
 )
@@ -50,9 +52,7 @@ type Config struct {
 	CreateIfNotExist    bool
 	TopK                int32
 	ChunkDiffusionCount int32
-	TOSRegion           string
-	TOSBucket           string
-	TOSEndpoint         string
+	TosConfig           *ve_tos.Config
 }
 
 type VikingKnowledgeBackend struct {
@@ -61,7 +61,7 @@ type VikingKnowledgeBackend struct {
 	config *Config
 }
 
-func NewVikingKnowledgeBackend(cfg *Config) (KnowledgeBackend, error) {
+func NewVikingKnowledgeBackend(cfg *Config) (_interface.KnowledgeBackend, error) {
 	client, err := ve_viking_knowledge.New(&ve_viking_knowledge.Client{
 		Index:        cfg.Index,
 		Project:      cfg.Project,
@@ -99,14 +99,11 @@ func NewVikingKnowledgeBackend(cfg *Config) (KnowledgeBackend, error) {
 	}
 
 	// new tos client
-	tosClient, err := ve_tos.New(&ve_tos.Config{
-		AK:           cfg.AK,
-		SK:           cfg.SK,
-		SessionToken: cfg.SessionToken,
-		Region:       cfg.TOSRegion,
-		Endpoint:     cfg.TOSEndpoint,
-		Bucket:       cfg.TOSBucket,
-	})
+	cfg.TosConfig.AK = cfg.AK
+	cfg.TosConfig.SK = cfg.SK
+	cfg.TosConfig.SessionToken = cfg.SessionToken
+
+	tosClient, err := ve_tos.New(cfg.TosConfig)
 	if err != nil {
 		return nil, fmt.Errorf("%w : new tos client error: %w", NewVikingKnowledgeBaseErr, err)
 	}
@@ -117,7 +114,7 @@ func NewVikingKnowledgeBackend(cfg *Config) (KnowledgeBackend, error) {
 	}, nil
 }
 
-func (v *VikingKnowledgeBackend) Search(query string, opts ...map[string]any) ([]KnowledgeEntry, error) {
+func (v *VikingKnowledgeBackend) Search(query string, opts ...map[string]any) ([]ktypes.KnowledgeEntry, error) {
 	chunks, err := v.viking.SearchKnowledge(
 		query,
 		utils.ExtractOptsValueWithDefault[int32]("topK", v.config.TopK, opts...),
@@ -133,7 +130,7 @@ func (v *VikingKnowledgeBackend) Search(query string, opts ...map[string]any) ([
 		return nil, fmt.Errorf("%w : with bad code %d, message:%s", VikingKnowledgeBaseSearchErr, chunks.Code, chunks.Message)
 	}
 
-	var entries []KnowledgeEntry
+	var entries []ktypes.KnowledgeEntry
 	for _, item := range chunks.Data.ResultList {
 		var metadata = make(map[string]any)
 		if item.DocInfo.DocMeta != "" {
@@ -142,7 +139,7 @@ func (v *VikingKnowledgeBackend) Search(query string, opts ...map[string]any) ([
 				return nil, fmt.Errorf("%w : Unmarshal DocMeta error:%w", VikingKnowledgeBaseSearchErr, err)
 			}
 		}
-		entries = append(entries, KnowledgeEntry{
+		entries = append(entries, ktypes.KnowledgeEntry{
 			Content:  item.Content,
 			Metadata: metadata,
 		})

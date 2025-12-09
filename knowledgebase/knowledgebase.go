@@ -17,27 +17,73 @@ package knowledgebase
 import (
 	"errors"
 	"fmt"
+
+	"github.com/volcengine/veadk-go/knowledgebase/backend/viking_knowledge_backend"
+	_interface "github.com/volcengine/veadk-go/knowledgebase/interface"
+	"github.com/volcengine/veadk-go/knowledgebase/ktypes"
 )
 
-var InvalidKnowledgeBackendErr = errors.New("invalid knowledge backend type")
+var (
+	InvalidKnowledgeBackendErr       = errors.New("invalid knowledge backend type")
+	InvalidKnowledgeBackendConfigErr = errors.New("invalid knowledge backend config type")
+)
 
-type KnowledgeBase[T any] struct {
+const (
+	DefaultName        = "knowledge_base"
+	DefaultDescription = `This is a knowledge base. You can use it to answer questions. If any questions need you to look up the knowledge base, you should call knowledge_base function with a query.`
+)
+
+type KnowledgeBase struct {
 	Name          string
 	Description   string
-	TopK          int
-	AppName       string
-	Index         string
-	Backend       any
-	BackendConfig T
+	Backend       _interface.KnowledgeBackend
+	BackendConfig any
 }
 
-func getKnowledgeBackend(backend KnowledgeBackendType) (KnowledgeBackend, error) {
+func getKnowledgeBackend(backend string, backendConfig any) (_interface.KnowledgeBackend, error) {
 	switch backend {
-	case VikingBackend:
-		return nil, nil
-	case RedisBackend, LocalBackend, OpensearchBackend:
-		return nil, fmt.Errorf("%w: %s", InvalidKnowledgeBackendErr, string(backend))
+	case ktypes.VikingBackend:
+		switch backendConfig.(type) {
+		case *viking_knowledge_backend.Config:
+			return viking_knowledge_backend.NewVikingKnowledgeBackend(backendConfig.(*viking_knowledge_backend.Config))
+		default:
+			return nil, InvalidKnowledgeBackendConfigErr
+		}
+	case ktypes.RedisBackend, ktypes.LocalBackend, ktypes.OpensearchBackend:
+		return nil, fmt.Errorf("%w: %s", InvalidKnowledgeBackendErr, backend)
 	default:
-		return nil, fmt.Errorf("%w: %s", InvalidKnowledgeBackendErr, string(backend))
+		return nil, fmt.Errorf("%w: %s", InvalidKnowledgeBackendErr, backend)
 	}
+}
+
+func NewKnowledgeBase(backend any, opts ...Option) (*KnowledgeBase, error) {
+	var err error
+
+	knowledge := &KnowledgeBase{}
+	for _, o := range opts {
+		o(knowledge)
+	}
+	if knowledge.Name == "" {
+		knowledge.Name = DefaultName
+	}
+	if knowledge.Description == "" {
+		knowledge.Description = DefaultDescription
+	}
+	switch backend.(type) {
+	case _interface.KnowledgeBackend:
+		knowledge.Backend = backend.(_interface.KnowledgeBackend)
+	case string:
+		knowledge.Backend, err = getKnowledgeBackend(backend.(string), knowledge.BackendConfig)
+		if err != nil {
+			return nil, err
+		}
+	case nil:
+		knowledge.Backend, err = getKnowledgeBackend(backend.(string), knowledge.BackendConfig)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, errors.New("unsupported backend type")
+	}
+	return knowledge, nil
 }

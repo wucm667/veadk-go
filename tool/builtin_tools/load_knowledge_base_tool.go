@@ -16,6 +16,7 @@ package builtin_tools
 
 import (
 	"github.com/volcengine/veadk-go/knowledgebase"
+	"github.com/volcengine/veadk-go/knowledgebase/ktypes"
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/functiontool"
 )
@@ -25,7 +26,7 @@ type QueryKnowledgeReq struct {
 }
 
 type WebSearchResult struct {
-	Result []knowledgebase.KnowledgeEntry `json:"result,omitempty"`
+	Result []ktypes.KnowledgeEntry `json:"result,omitempty"`
 }
 
 // LoadKnowledgeBaseTool
@@ -34,9 +35,9 @@ type WebSearchResult struct {
 // query: The query to load the knowledgebase for.
 // Returns:
 // A list of knowledge base results.
-func LoadKnowledgeBaseTool(backend knowledgebase.KnowledgeBackend) (tool.Tool, error) {
+func LoadKnowledgeBaseTool(knowledge *knowledgebase.KnowledgeBase) (tool.Tool, error) {
 	handler := func(ctx tool.Context, req *QueryKnowledgeReq) (WebSearchResult, error) {
-		result, err := backend.Search(req.Query)
+		result, err := knowledge.Backend.Search(req.Query)
 		if err != nil {
 			return WebSearchResult{}, err
 		}
@@ -47,8 +48,8 @@ func LoadKnowledgeBaseTool(backend knowledgebase.KnowledgeBackend) (tool.Tool, e
 	}
 	return functiontool.New(
 		functiontool.Config{
-			Name:        "knowledge_base",
-			Description: `This is a knowledge base. You can use it to answer questions. If any questions need you to look up the knowledge base, you should call knowledge_base function with a query.`,
+			Name:        knowledge.Name,
+			Description: knowledge.Description,
 		},
 		handler)
 }

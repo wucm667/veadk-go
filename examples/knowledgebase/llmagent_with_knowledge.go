@@ -21,7 +21,10 @@ import (
 
 	"github.com/volcengine/veadk-go/agents/llmagent"
 	"github.com/volcengine/veadk-go/common"
+	"github.com/volcengine/veadk-go/integrations/ve_tos"
 	"github.com/volcengine/veadk-go/knowledgebase"
+	"github.com/volcengine/veadk-go/knowledgebase/backend/viking_knowledge_backend"
+	"github.com/volcengine/veadk-go/knowledgebase/ktypes"
 	"github.com/volcengine/veadk-go/prompts"
 	"github.com/volcengine/veadk-go/utils"
 	"google.golang.org/adk/agent"
@@ -33,9 +36,16 @@ import (
 func main() {
 	ctx := context.Background()
 	// create Knowledge
-	knowledgeBase, err := knowledgebase.NewVikingKnowledgeBackend(&knowledgebase.Config{
-		Index: "sjy_test_coffee_kg",
-	})
+	knowledgeBase, err := knowledgebase.NewKnowledgeBase(
+		ktypes.VikingBackend,
+		knowledgebase.WithBackendConfig(
+			&viking_knowledge_backend.Config{
+				Index: "sjy_test_coffee_kg",
+				TosConfig: &ve_tos.Config{
+					Bucket: "veadk-ut-20251208152204",
+				},
+			}),
+	)
 
 	if err != nil {
 		log.Fatal("NewVikingKnowledgeBackend error: ", err)

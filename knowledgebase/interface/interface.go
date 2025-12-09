@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package knowledgebase
+package _interface
+
+import "github.com/volcengine/veadk-go/knowledgebase/ktypes"
 
 type KnowledgeBackend interface {
 	Index() string
-	Search(query string, opts ...map[string]any) ([]KnowledgeEntry, error)
+	Search(query string, opts ...map[string]any) ([]ktypes.KnowledgeEntry, error)
 	AddFromText(text []string, opts ...map[string]any) error
 	AddFromFiles(files []string, opts ...map[string]any) error
 	AddFromDirectory(directory string, opts ...map[string]any) error
