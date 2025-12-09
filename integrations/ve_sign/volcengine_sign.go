@@ -91,7 +91,7 @@ func (v VeRequest) DoRequest() ([]byte, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		//Try to parse error response
-		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(respBody))
+		return respBody, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(respBody))
 	}
 	return respBody, nil
 

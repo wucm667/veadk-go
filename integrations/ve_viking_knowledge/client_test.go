@@ -15,6 +15,7 @@
 package ve_viking_knowledge
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -26,13 +27,13 @@ import (
 
 func TestClient_SearchKnowledge(t *testing.T) {
 	client := getClientOrSkip(t, "sjy_test_coffee_kg")
-
+	fmt.Println("Search knowledge by knowledge")
 	result, err := client.SearchKnowledge("拿铁", 5, nil, true, 1)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	fmt.Println(*result.Data)
+	fmt.Println(result.Data.ResultList[0].DocInfo)
 	t.Log("result = ", result)
 }
 
@@ -40,11 +41,15 @@ func getClientOrSkip(t *testing.T, index string) Client {
 	t.Helper()
 	ak := os.Getenv(common.VOLCENGINE_ACCESS_KEY)
 	sk := os.Getenv(common.VOLCENGINE_SECRET_KEY)
-	rid := os.Getenv(common.VIKING_KNOWLEDGE_RESOURCE_ID)
-	if ak == "" || sk == "" || rid == "" {
-		t.Skip("missing required env: VOLCENGINE_ACCESS_KEY/VOLCENGINE_SECRET_KEY/VIKING_KNOWLEDGE_RESOURCE_ID")
+	if ak == "" || sk == "" {
+		t.Skip("missing required env: VOLCENGINE_ACCESS_KEY/VOLCENGINE_SECRET_KEY")
 	}
-	return Client{ResourceID: rid, Index: index, Project: "default", AK: ak, SK: sk}
+	client, err := New(&Client{Index: index, Project: "default", AK: ak, SK: sk})
+	if err != nil {
+		t.Fatal(err)
+		t.Skip("missing required env: VOLCENGINE_ACCESS_KEY/VOLCENGINE_SECRET_KEY")
+	}
+	return *client
 }
 
 func TestClient_CollectionCreateInfoDelete(t *testing.T) {
@@ -61,7 +66,8 @@ func TestClient_CollectionCreateInfoDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log("CollectionInfo respInfo = ", respInfo)
+	respBytes, _ := json.Marshal(respInfo)
+	t.Log("CollectionInfo respInfo = ", string(respBytes))
 
 	if respInfo == nil || respInfo.Code != 0 {
 		t.Fatal("info failed")

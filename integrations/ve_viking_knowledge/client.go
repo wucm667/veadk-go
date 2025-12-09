@@ -17,15 +17,18 @@ package ve_viking_knowledge
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 
+	"github.com/volcengine/veadk-go/common"
 	"github.com/volcengine/veadk-go/integrations/ve_sign"
+	"github.com/volcengine/veadk-go/utils"
 )
 
 const (
 	VikingKnowledgeService = "air"
-	Region                 = "cn-beijing"
 )
 
 var (
@@ -40,14 +43,42 @@ var (
 	ChunkListPath        = "/api/knowledge/point/list"
 )
 
+var VikingKnowledgeConfigErr = errors.New("Viking Knowledge Config Error")
+
 // docs: https://www.volcengine.com/docs/84313/1254485?lang=zh#go-%E8%AF%AD%E8%A8%80%E8%B0%83%E7%94%A8%E5%85%A8%E6%B5%81%E7%A8%8B%E7%A4%BA%E4%BE%8B
 
 type Client struct {
 	ResourceID string //ResourceID or Index + Project
 	Index      string
 	Project    string
+	Region     string
 	AK         string
 	SK         string
+}
+
+func New(cfg *Client) (*Client, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("%w : config is nil", VikingKnowledgeConfigErr)
+	}
+	if cfg.Project == "" {
+		cfg.Project = utils.GetEnvWithDefault(common.DATABASE_VIKING_PROJECT, common.DEFAULT_DATABASE_VIKING_PROJECT)
+	}
+	if cfg.ResourceID == "" && (cfg.Project == "" || cfg.Index == "") {
+		return nil, fmt.Errorf("%w : knowledge ResourceID or Index and Project is nil", VikingKnowledgeConfigErr)
+	}
+	if err := precheckIndexNaming(cfg.Index); err != nil {
+		return nil, err
+	}
+	if cfg.Region == "" {
+		cfg.Region = utils.GetEnvWithDefault(common.DATABASE_VIKING_REGION, common.DEFAULT_DATABASE_VIKING_REGION)
+	}
+	if cfg.AK == "" {
+		cfg.AK = utils.GetEnvWithDefault(common.VOLCENGINE_ACCESS_KEY)
+	}
+	if cfg.SK == "" {
+		cfg.SK = utils.GetEnvWithDefault(common.VOLCENGINE_SECRET_KEY)
+	}
+	return cfg, nil
 }
 
 func (c *Client) generateSearchKnowledgeReqParams(query string, topK int32, metadata map[string]any, rerank bool, chunkDiffusionCount int32) CollectionSearchKnowledgeRequest {
@@ -99,14 +130,16 @@ func (c *Client) SearchKnowledge(query string, topK int32, metadata map[string]a
 		Host:    KnowledgeBaseDomain,
 		Path:    SearchKnowledgePath,
 		Service: VikingKnowledgeService,
-		Region:  Region,
+		Region:  c.Region,
 		Header: map[string]string{
 			"Content-Type": "application/json",
 			"Accept":       "application/json",
 		},
 		Body: searchKnowledgeReqParams,
 	}.DoRequest()
-
+	if err != nil {
+		return nil, err
+	}
 	var searchKnowledgeResp *CollectionSearchKnowledgeResponse
 	err = ParseJsonUseNumber(respBody, &searchKnowledgeResp)
 	if err != nil {
@@ -123,7 +156,7 @@ func (c *Client) CollectionDelete() (*CommonResponse, error) {
 		Host:    KnowledgeBaseDomain,
 		Path:    CollectionDeletePath,
 		Service: VikingKnowledgeService,
-		Region:  Region,
+		Region:  c.Region,
 		Header: map[string]string{
 			"Content-Type": "application/json",
 			"Accept":       "application/json",
@@ -133,7 +166,9 @@ func (c *Client) CollectionDelete() (*CommonResponse, error) {
 			Project: c.Project,
 		},
 	}.DoRequest()
-
+	if err != nil {
+		return nil, err
+	}
 	var resp *CommonResponse
 	err = ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
@@ -153,7 +188,7 @@ func (c *Client) CollectionCreate(description string) (*CommonResponse, error) {
 		Host:    KnowledgeBaseDomain,
 		Path:    CollectionCreatePath,
 		Service: VikingKnowledgeService,
-		Region:  Region,
+		Region:  c.Region,
 		Header: map[string]string{
 			"Content-Type": "application/json",
 			"Accept":       "application/json",
@@ -164,7 +199,9 @@ func (c *Client) CollectionCreate(description string) (*CommonResponse, error) {
 			Description: description,
 		},
 	}.DoRequest()
-
+	if err != nil {
+		return nil, err
+	}
 	var resp *CommonResponse
 	err = ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
@@ -181,7 +218,7 @@ func (c *Client) CollectionInfo() (*CommonResponse, error) {
 		Host:    KnowledgeBaseDomain,
 		Path:    CollectionInfoPath,
 		Service: VikingKnowledgeService,
-		Region:  Region,
+		Region:  c.Region,
 		Header: map[string]string{
 			"Content-Type": "application/json",
 			"Accept":       "application/json",
@@ -191,7 +228,9 @@ func (c *Client) CollectionInfo() (*CommonResponse, error) {
 			Project: c.Project,
 		},
 	}.DoRequest()
-
+	if err != nil && len(respBody) == 0 {
+		return nil, err
+	}
 	var resp *CommonResponse
 	err = ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
@@ -208,7 +247,7 @@ func (c *Client) DocumentAddTOS(tosPath string) (*CommonResponse, error) {
 		Host:    KnowledgeBaseDomain,
 		Path:    DocumentAddPath,
 		Service: VikingKnowledgeService,
-		Region:  Region,
+		Region:  c.Region,
 		Header: map[string]string{
 			"Content-Type": "application/json",
 			"Accept":       "application/json",
@@ -220,7 +259,9 @@ func (c *Client) DocumentAddTOS(tosPath string) (*CommonResponse, error) {
 			TosPath:        tosPath,
 		},
 	}.DoRequest()
-
+	if err != nil {
+		return nil, err
+	}
 	var resp *CommonResponse
 	err = ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
@@ -237,7 +278,7 @@ func (c *Client) DocumentDelete(docID string) (*CommonResponse, error) {
 		Host:    KnowledgeBaseDomain,
 		Path:    DocumentDeletePath,
 		Service: VikingKnowledgeService,
-		Region:  Region,
+		Region:  c.Region,
 		Header: map[string]string{
 			"Content-Type": "application/json",
 			"Accept":       "application/json",
@@ -248,7 +289,9 @@ func (c *Client) DocumentDelete(docID string) (*CommonResponse, error) {
 			DocID:          docID,
 		},
 	}.DoRequest()
-
+	if err != nil {
+		return nil, err
+	}
 	var resp *CommonResponse
 	err = ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
@@ -265,7 +308,7 @@ func (c *Client) DocumentList(offset int32, limit int32) (*DocumentListResponse,
 		Host:    KnowledgeBaseDomain,
 		Path:    DocumentListPath,
 		Service: VikingKnowledgeService,
-		Region:  Region,
+		Region:  c.Region,
 		Header: map[string]string{
 			"Content-Type": "application/json",
 			"Accept":       "application/json",
@@ -277,7 +320,9 @@ func (c *Client) DocumentList(offset int32, limit int32) (*DocumentListResponse,
 			Limit:          limit,
 		},
 	}.DoRequest()
-
+	if err != nil {
+		return nil, err
+	}
 	var resp *DocumentListResponse
 	err = ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
@@ -294,7 +339,7 @@ func (c *Client) ChunkList(offset int32, limit int32) (*ChunkListResponse, error
 		Host:    KnowledgeBaseDomain,
 		Path:    ChunkListPath,
 		Service: VikingKnowledgeService,
-		Region:  Region,
+		Region:  c.Region,
 		Header: map[string]string{
 			"Content-Type": "application/json",
 			"Accept":       "application/json",
@@ -306,13 +351,26 @@ func (c *Client) ChunkList(offset int32, limit int32) (*ChunkListResponse, error
 			Limit:          limit,
 		},
 	}.DoRequest()
-
+	if err != nil {
+		return nil, err
+	}
 	var resp *ChunkListResponse
 	err = ParseJsonUseNumber(respBody, &resp)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
+}
+
+func precheckIndexNaming(index string) error {
+	var indexNameRe = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
+	if l := len(index); !(l > 0 && l <= 128) {
+		return fmt.Errorf("%w: index length out of range (must be 1–128)", VikingKnowledgeConfigErr)
+	}
+	if !indexNameRe.MatchString(index) {
+		return fmt.Errorf("%w: index contains characters other than letters、numbers and _", VikingKnowledgeConfigErr)
+	}
+	return nil
 }
 
 func ParseJsonUseNumber(input []byte, target interface{}) error {

@@ -18,8 +18,11 @@ import (
 	"context"
 
 	"github.com/volcengine/veadk-go/common"
+	"github.com/volcengine/veadk-go/knowledgebase"
 	"github.com/volcengine/veadk-go/model"
 	"github.com/volcengine/veadk-go/prompts"
+	"github.com/volcengine/veadk-go/tool/builtin_tools"
+	"google.golang.org/adk/tool"
 
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
@@ -36,11 +39,12 @@ type Config struct {
 	ModelProvider string
 	ModelApiBase  string
 	ModelApiKey   string
+	KnowledgeBase knowledgebase.KnowledgeBase
 }
 
 func New(cfg Config) (agent.Agent, error) {
 	if cfg.ModelName != "" {
-		model, err := model.NewModel(
+		veModel, err := model.NewModel(
 			context.Background(),
 			cfg.ModelName,
 			&model.ClientConfig{
@@ -50,7 +54,7 @@ func New(cfg Config) (agent.Agent, error) {
 		if err != nil {
 			return nil, err
 		}
-		cfg.Model = model
+		cfg.Model = veModel
 	}
 	if cfg.Name == "" {
 		cfg.Name = common.DEFAULT_LLMAGENT_NAME
@@ -60,6 +64,16 @@ func New(cfg Config) (agent.Agent, error) {
 	}
 	if cfg.Description == "" {
 		cfg.Description = prompts.DEFAULT_DESCRIPTION
+	}
+	if cfg.KnowledgeBase != nil {
+		knowledgeTool, err := builtin_tools.LoadKnowledgeBaseTool(cfg.KnowledgeBase)
+		if err != nil {
+			return nil, err
+		}
+		if cfg.Tools == nil {
+			cfg.Tools = []tool.Tool{}
+		}
+		cfg.Tools = append(cfg.Tools, knowledgeTool)
 	}
 	return llmagent.New(cfg.Config)
 }

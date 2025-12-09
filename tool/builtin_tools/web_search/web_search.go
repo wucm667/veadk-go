@@ -61,11 +61,6 @@ type WebSearchResult struct {
 }
 
 func WebSearch(ctx tool.Context, args webSearchArgs) (WebSearchResult, error) {
-	// Search a query in websites.
-	// Args:
-	// 		query: The query to search.
-	// Returns:
-	//		A list of result documents.
 	var ak string
 	var sk string
 	//var sessionToken string

@@ -12,10 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package knowledgebase
+package utils
 
-import "testing"
+import "os"
 
-func TestSearchKg(t *testing.T) {
-	
+func GetEnvWithDefault(envKey string, defaultValue ...string) string {
+	var value string
+	value = os.Getenv(envKey)
+	if value != "" {
+		return value
+	}
+	if len(defaultValue) > 0 {
+		value = defaultValue[0]
+	}
+	return value
 }
