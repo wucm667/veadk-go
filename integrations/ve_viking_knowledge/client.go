@@ -22,12 +22,12 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/volcengine/veadk-go/auth/veauth"
 	"github.com/volcengine/veadk-go/common"
 	"github.com/volcengine/veadk-go/configs"
 	"github.com/volcengine/veadk-go/integrations/ve_sign"
 	"github.com/volcengine/veadk-go/utils"
+	"gopkg.in/go-playground/validator.v8"
 )
 
 const (
@@ -61,10 +61,12 @@ type Client struct {
 }
 
 func (c *Client) validate() error {
-	var validate = validator.New()
+	var validate *validator.Validate
+	config := &validator.Config{TagName: "validate"}
+	validate = validator.New(config)
 	if err := validate.Struct(c); err != nil {
 		for _, err := range err.(validator.ValidationErrors) {
-			return fmt.Errorf("field %s validation failed: %s（rule: %s）", err.Field(), err.Tag(), err.Param())
+			return fmt.Errorf("field %s validation failed: %s（rule: %s）", err.Field, err.Tag, err.Param)
 		}
 	}
 	if c.ResourceID == "" && (c.Project == "" || c.Index == "") {
@@ -77,6 +79,9 @@ func (c *Client) validate() error {
 }
 
 func New(cfg *Client) (*Client, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("%w: viking knowledge confgi is nil", VikingKnowledgeConfigErr)
+	}
 	if cfg.AK == "" {
 		cfg.AK = utils.GetEnvWithDefault(common.VOLCENGINE_ACCESS_KEY, configs.GetGlobalConfig().Volcengine.AK)
 	}

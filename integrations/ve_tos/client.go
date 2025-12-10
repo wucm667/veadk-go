@@ -27,13 +27,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/volcengine/ve-tos-golang-sdk/v2/tos"
 	"github.com/volcengine/ve-tos-golang-sdk/v2/tos/enum"
 	"github.com/volcengine/veadk-go/auth/veauth"
 	"github.com/volcengine/veadk-go/common"
 	"github.com/volcengine/veadk-go/configs"
 	"github.com/volcengine/veadk-go/utils"
+	"gopkg.in/go-playground/validator.v8"
 )
 
 var bucketRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$`)
@@ -60,10 +60,12 @@ type Config struct {
 }
 
 func (c *Config) validate() error {
-	var validate = validator.New()
+	var validate *validator.Validate
+	config := &validator.Config{TagName: "validate"}
+	validate = validator.New(config)
 	if err := validate.Struct(c); err != nil {
 		for _, err := range err.(validator.ValidationErrors) {
-			return fmt.Errorf("field %s validation failed: %s（rule: %s）", err.Field(), err.Tag(), err.Param())
+			return fmt.Errorf("field %s validation failed: %s（rule: %s）", err.Field, err.Tag, err.Param)
 		}
 	}
 	if err := preCheckBucket(c.Bucket); err != nil {
@@ -78,6 +80,9 @@ type Client struct {
 }
 
 func New(cfg *Config) (*Client, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("%w: tos config is nil", TosConfigInvalidErr)
+	}
 	if cfg.AK == "" {
 		cfg.AK = utils.GetEnvWithDefault(common.VOLCENGINE_ACCESS_KEY, configs.GetGlobalConfig().Volcengine.AK)
 	}
