@@ -10,16 +10,20 @@ import (
 	"github.com/volcengine/veadk-go/utils"
 )
 
-var bucket = "veadk-ut-20251208152204"
-
-func getClientOrSkip(t *testing.T) Client {
+func getClientOrSkip(t *testing.T, buckets ...string) Client {
 	t.Helper()
+	var bucket string
 	ak := utils.GetEnvWithDefault(common.VOLCENGINE_ACCESS_KEY)
 	sk := utils.GetEnvWithDefault(common.VOLCENGINE_SECRET_KEY)
 	t.Log("ak=", ak)
 	t.Log("sk=", sk)
 	if ak == "" || sk == "" {
 		t.Skip("missing required env: VOLCENGINE_ACCESS_KEY/VOLCENGINE_SECRET_KEY")
+	}
+	if len(buckets) > 0 {
+		bucket = buckets[0]
+	} else {
+		bucket = common.DEFAULT_DATABASE_TOS_BUCKET
 	}
 	client, err := New(&Config{AK: ak, SK: sk, Region: "cn-beijing", Bucket: bucket})
 	if err != nil {
@@ -52,8 +56,13 @@ func uniqueKey(suffix string) string {
 	return "ut-" + time.Now().Format("150405.000000") + "-" + suffix
 }
 
+func uniqueBucket() string {
+	return "bucket-" + time.Now().Format("20060102150405")
+}
+
 func TestBucketExist_NotFound(t *testing.T) {
-	c := getClientOrSkip(t)
+	bucket := "not-exist-bucket"
+	c := getClientOrSkip(t, bucket)
 	exist, err := c.BucketExist(t.Context())
 	if err != nil {
 		t.Fatalf("BucketExist returned error: %v", err)
@@ -64,7 +73,8 @@ func TestBucketExist_NotFound(t *testing.T) {
 }
 
 func TestCreateAndDeleteBucket(t *testing.T) {
-	c := getClientOrSkip(t)
+	bucket := uniqueBucket()
+	c := getClientOrSkip(t, bucket)
 	t.Log("creating bucket:", bucket)
 
 	if err := c.CreateBucket(t.Context()); err != nil {
@@ -307,11 +317,11 @@ func TestUploadDirectoryAndDownload(t *testing.T) {
 	}
 	d1 := filepath.Join(os.TempDir(), uniqueKey("da.txt"))
 	d2 := filepath.Join(os.TempDir(), uniqueKey("db.txt"))
-	if err := c.Download("a.txt", d1); err != nil {
-		t.Fatalf("Download a.txt error: %v", err)
+	if err := c.Download("nested/a.txt", d1); err != nil {
+		t.Fatalf("Download nested/a.txt error: %v", err)
 	}
-	if err := c.Download(filepath.ToSlash(filepath.Join("nested", "b.txt")), d2); err != nil {
-		t.Fatalf("Download nested/b.txt error: %v", err)
+	if err := c.Download("nested/b.txt", d2); err != nil {
+		t.Fatalf("Download nested/a.txt error: %v", err)
 	}
 	b1, _ := os.ReadFile(d1)
 	b2, _ := os.ReadFile(d2)

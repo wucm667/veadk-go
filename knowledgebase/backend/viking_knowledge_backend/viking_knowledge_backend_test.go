@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/volcengine/veadk-go/common"
-	"github.com/volcengine/veadk-go/integrations/ve_tos"
 )
 
 func writeFile(t *testing.T, dir string, rel string) string {
@@ -127,7 +126,6 @@ func newBackendOrSkip(t *testing.T, idx string) *VikingKnowledgeBackend {
 	if region == "" {
 		region = "cn-beijing"
 	}
-	bucket := "veadk-ut-20251208152204"
 
 	cfg := &Config{
 		AK:                  ak,
@@ -138,9 +136,6 @@ func newBackendOrSkip(t *testing.T, idx string) *VikingKnowledgeBackend {
 		CreateIfNotExist:    true,
 		TopK:                5,
 		ChunkDiffusionCount: 1,
-		TosConfig: &ve_tos.Config{
-			Bucket: bucket,
-		},
 	}
 	kb, err := NewVikingKnowledgeBackend(cfg)
 	if err != nil {

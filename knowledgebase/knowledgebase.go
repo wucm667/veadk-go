@@ -77,13 +77,8 @@ func NewKnowledgeBase(backend any, opts ...Option) (*KnowledgeBase, error) {
 		if err != nil {
 			return nil, err
 		}
-	case nil:
-		knowledge.Backend, err = getKnowledgeBackend(backend.(string), knowledge.BackendConfig)
-		if err != nil {
-			return nil, err
-		}
 	default:
-		return nil, errors.New("unsupported backend type")
+		return nil, InvalidKnowledgeBackendErr
 	}
 	return knowledge, nil
 }

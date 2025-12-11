@@ -99,6 +99,9 @@ func NewVikingKnowledgeBackend(cfg *Config) (_interface.KnowledgeBackend, error)
 	}
 
 	// new tos client
+	if cfg.TosConfig == nil {
+		cfg.TosConfig = &ve_tos.Config{}
+	}
 	cfg.TosConfig.AK = cfg.AK
 	cfg.TosConfig.SK = cfg.SK
 	cfg.TosConfig.SessionToken = cfg.SessionToken

@@ -72,8 +72,10 @@ func (c *Client) validate() error {
 	if c.ResourceID == "" && (c.Project == "" || c.Index == "") {
 		return fmt.Errorf("%w: knowledge ResourceID or Index and Project is nil", VikingKnowledgeConfigErr)
 	}
-	if err := precheckIndexNaming(c.Index); err != nil {
-		return err
+	if c.Index != "" {
+		if err := precheckIndexNaming(c.Index); err != nil {
+			return err
+		}
 	}
 	return nil
 }

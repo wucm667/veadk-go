@@ -44,7 +44,7 @@ const (
 // TOS
 const (
 	DEFAULT_DATABASE_TOS_REGION = "cn-beijing"
-	DEFAULT_DATABASE_TOS_BUCKET = "ark-tutorial"
+	DEFAULT_DATABASE_TOS_BUCKET = "veadk-go-bucket"
 )
 
 //web_search

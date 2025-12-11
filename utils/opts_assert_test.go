@@ -7,10 +7,8 @@ import (
 
 func TestExtractOptsValue_Success(t *testing.T) {
 	opts := map[string]any{"a": 123, "b": "x"}
-    ia := func(v any) (int, bool) { x, ok := v.(int); return x, ok }
-    sa := func(v any) (string, bool) { s, ok := v.(string); return s, ok }
 
-    gotInt, err := ExtractOptsValue[int](opts, "a", ia)
+	gotInt, err := ExtractOptsValue[int]("a", opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,7 +16,7 @@ func TestExtractOptsValue_Success(t *testing.T) {
 		t.Fatalf("got=%d want=123", gotInt)
 	}
 
-    gotStr, err := ExtractOptsValue[string](opts, "b", sa)
+	gotStr, err := ExtractOptsValue[string]("b", opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,43 +26,42 @@ func TestExtractOptsValue_Success(t *testing.T) {
 }
 
 func TestExtractOptsValue_Errors(t *testing.T) {
-    ia := func(v any) (int, bool) { x, ok := v.(int); return x, ok }
-
-    _, err := ExtractOptsValue[int](nil, "a", ia)
+	_, err := ExtractOptsValue[int]("a")
 	if !errors.Is(err, OptsNIlErr) {
 		t.Fatalf("want OptsNIlErr got=%v", err)
 	}
 
-    _, err = ExtractOptsValue[int](map[string]any{}, "a", ia)
+	_, err = ExtractOptsValue[int]("a", nil)
 	if !errors.Is(err, OptsInvalidKeyErr) {
 		t.Fatalf("want OptsInvalidKeyErr got=%v", err)
 	}
 
-    _, err = ExtractOptsValue[int](map[string]any{"a": "x"}, "a", ia)
+	_, err = ExtractOptsValue[int]("a", map[string]any{})
+	if !errors.Is(err, OptsInvalidKeyErr) {
+		t.Fatalf("want OptsInvalidKeyErr got=%v", err)
+	}
+
+	_, err = ExtractOptsValue[int]("a", map[string]any{"a": "x"})
 	if !errors.Is(err, OptsAssertTypeErr) {
 		t.Fatalf("want OptsAssertTypeErr got=%v", err)
 	}
 }
 
 func TestExtractOptsValueWithDefault_DefaultPaths(t *testing.T) {
-    ia := func(v any) (int, bool) { x, ok := v.(int); return x, ok }
-    ba := func(v any) (bool, bool) { b, ok := v.(bool); return b, ok }
-
-    if got := ExtractOptsValueWithDefault[int](nil, "a", ia, 7); got != 7 {
+	if got := ExtractOptsValueWithDefault[int]("a", 7); got != 7 {
 		t.Fatalf("nil opts default got=%d", got)
 	}
-    if got := ExtractOptsValueWithDefault[int](map[string]any{}, "a", ia, 8); got != 8 {
+	if got := ExtractOptsValueWithDefault[int]("a", 8, map[string]any{}); got != 8 {
 		t.Fatalf("missing key default got=%d", got)
 	}
-    if got := ExtractOptsValueWithDefault[int](map[string]any{"a": "x"}, "a", ia, 9); got != 9 {
+	if got := ExtractOptsValueWithDefault[int]("a", 9, map[string]any{"a": "x"}); got != 9 {
 		t.Fatalf("assert fail default got=%d", got)
 	}
 
-    if got := ExtractOptsValueWithDefault[int](map[string]any{"a": 5}, "a", ia, 0); got != 5 {
+	if got := ExtractOptsValueWithDefault[int]("a", 0, map[string]any{"a": 5}); got != 5 {
 		t.Fatalf("success got=%d want=5", got)
 	}
-    if got := ExtractOptsValueWithDefault[bool](map[string]any{"b": true}, "b", ba, false); got != true {
+	if got := ExtractOptsValueWithDefault[bool]("b", false, map[string]any{"b": true}); got != true {
 		t.Fatalf("bool success got=%v want=true", got)
 	}
 }
-
