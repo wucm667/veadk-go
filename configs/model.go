@@ -31,6 +31,8 @@ type AgentConfig struct {
 
 type ModelConfig struct {
 	Agent *AgentConfig
+	Image *CommonModelConfig
+	Video *CommonModelConfig
 }
 
 func (c *ModelConfig) MapEnvToConfig() {
@@ -39,4 +41,14 @@ func (c *ModelConfig) MapEnvToConfig() {
 	c.Agent.Provider = getEnv(common.MODEL_AGENT_PROVIDER, common.DEFAULT_MODEL_AGENT_PROVIDER, false)
 	c.Agent.ApiBase = getEnv(common.MODEL_AGENT_API_BASE, common.DEFAULT_MODEL_AGENT_API_BASE, false)
 	c.Agent.ApiKey = getEnv(common.MODEL_AGENT_API_KEY, "", false)
+
+	// Image
+	c.Image.Name = getEnv(common.MODEL_IMAGE_NAME, common.DEFAULT_MODEL_IMAGE_NAME, false)
+	c.Image.ApiBase = getEnv(common.MODEL_IMAGE_API_BASE, common.DEFAULT_MODEL_IMAGE_API_BASE, false)
+	c.Image.ApiKey = getEnv(common.MODEL_IMAGE_API_KEY, "", false)
+
+	// Video
+	c.Video.Name = getEnv(common.MODEL_VIDEO_NAME, common.DEFAULT_MODEL_VIDEO_NAME, false)
+	c.Video.ApiBase = getEnv(common.MODEL_VIDEO_API_BASE, common.DEFAULT_MODEL_VIDEO_API_BASE, false)
+	c.Video.ApiKey = getEnv(common.MODEL_VIDEO_API_KEY, "", false)
 }

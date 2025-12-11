@@ -15,9 +15,18 @@
 package common
 
 const (
+	// Agent
 	DEFAULT_MODEL_AGENT_NAME     = "doubao-seed-1-6-250615"
 	DEFAULT_MODEL_AGENT_PROVIDER = "openai"
 	DEFAULT_MODEL_AGENT_API_BASE = "https://ark.cn-beijing.volces.com/api/v3/"
+
+	// Image
+	DEFAULT_MODEL_IMAGE_NAME     = "doubao-seedream-4-5-251128"
+	DEFAULT_MODEL_IMAGE_API_BASE = "https://ark.cn-beijing.volces.com/api/v3/"
+
+	// Video
+	DEFAULT_MODEL_VIDEO_NAME     = "doubao-seedance-1-0-pro-250528"
+	DEFAULT_MODEL_VIDEO_API_BASE = "https://ark.cn-beijing.volces.com/api/v3/"
 )
 
 // LOGGING

@@ -63,6 +63,8 @@ func SetupVeADKConfig() error {
 		Volcengine: &Volcengine{},
 		Model: &ModelConfig{
 			Agent: &AgentConfig{},
+			Image: &CommonModelConfig{},
+			Video: &CommonModelConfig{},
 		},
 		Tool:        &BuiltinToolConfigs{},
 		PromptPilot: &PromptPilotConfig{},
@@ -75,6 +77,7 @@ func SetupVeADKConfig() error {
 			TOS:        &TosClientConf{},
 		},
 	}
+	globalConfig.Model.MapEnvToConfig()
 	globalConfig.LOGGING.MapEnvToConfig()
 	globalConfig.Database.MapEnvToConfig()
 	globalConfig.Volcengine.MapEnvToConfig()
