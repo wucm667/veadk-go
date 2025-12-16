@@ -80,7 +80,7 @@ func NewConfig(cfg *ClientConfig) (*ClientConfig, error) {
 	if cfg.AK == "" || cfg.SK == "" {
 		iam, err := veauth.GetCredentialFromVeFaaSIAM()
 		if err != nil {
-			return nil, fmt.Errorf("%w : GetCredential error: %w", VikingKnowledgeConfigErr, err)
+			return nil, fmt.Errorf("%w : GetCredential error: %w, VOLCENGINE_ACCESS_KEY/VOLCENGINE_SECRET_KEY not found. Please set via environment variables or config file", VikingKnowledgeConfigErr, err)
 		}
 		cfg.AK = iam.AccessKeyID
 		cfg.SK = iam.SecretAccessKey

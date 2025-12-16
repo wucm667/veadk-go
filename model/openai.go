@@ -309,7 +309,7 @@ func (m *openAIModel) convertContent(content *genai.Content) ([]openAIMessage, e
 				toolCallID = "call_" + uuid.New().String()[:8]
 			}
 			toolMessages = append(toolMessages, openAIMessage{
-				Role:       "tools",
+				Role:       "tool",
 				Content:    string(responseJSON),
 				ToolCallID: toolCallID,
 			})
