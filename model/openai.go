@@ -1,3 +1,17 @@
+// Copyright (c) 2025 Beijing Volcano Engine Technology Co., Ltd. and/or its affiliates.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package model
 
 import (
@@ -14,42 +28,25 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/volcengine/veadk-go/common"
 	"google.golang.org/adk/model"
 	"google.golang.org/genai"
 )
 
-// ClientConfig holds configuration for the OpenAI client.
 type ClientConfig struct {
-	// APIKey is the API key for authentication.
-	// If empty, will be read from environment variables based on the model name.
-	APIKey string
-	// BaseURL is the base URL for the API (e.g., "https://api.example.com/v1").
-	// If empty, will be inferred from the model name.
-	BaseURL   string
-	ExtraBody map[string]any
-	// HTTPClient is the HTTP client to use (optional)
+	APIKey     string
+	BaseURL    string
+	ExtraBody  map[string]any
 	HTTPClient *http.Client
 }
 
-// openAIModel implements the model.LLM interface for OpenAI-compatible APIs.
 type openAIModel struct {
-	modelName  string
+	name       string
 	config     *ClientConfig
 	httpClient *http.Client
 }
 
-// NewModel returns [model.LLM], backed by an OpenAI-compatible API.
-//
-// It uses the provided context and configuration to initialize the HTTP client.
-// The modelName specifies which model to target (e.g., "gpt-4", "gpt-4o-mini").
-//
-// If config is nil, it will be created with default values.
-// If config.APIKey is empty, it will be read from OPENAI_API_KEY environment variable.
-// If config.BaseURL is empty, it will be read from OPENAI_BASE_URL environment variable.
-//
-// An error is returned if no API key or base URL can be found.
-func NewModel(ctx context.Context, modelName string, config *ClientConfig) (model.LLM, error) {
-	// ctx is reserved for future use (e.g., client initialization with context)
+func NewOpenAIModel(ctx context.Context, modelName string, config *ClientConfig) (model.LLM, error) {
 	_ = ctx
 
 	if config == nil {
@@ -57,16 +54,16 @@ func NewModel(ctx context.Context, modelName string, config *ClientConfig) (mode
 	}
 
 	if config.APIKey == "" {
-		config.APIKey = os.Getenv("OPENAI_API_KEY")
+		config.APIKey = os.Getenv(common.MODEL_AGENT_API_KEY)
 		if config.APIKey == "" {
-			return nil, fmt.Errorf("openai: API key not found, set OPENAI_API_KEY environment variable or provide config.APIKey")
+			return nil, fmt.Errorf("openai: API key not found, set MODEL_AGENT_API_KEY environment variable or provide config.APIKey")
 		}
 	}
 
 	if config.BaseURL == "" {
-		config.BaseURL = os.Getenv("OPENAI_BASE_URL")
+		config.BaseURL = os.Getenv(common.MODEL_AGENT_API_BASE)
 		if config.BaseURL == "" {
-			return nil, fmt.Errorf("openai: base URL not found, set OPENAI_BASE_URL environment variable or provide config.BaseURL")
+			return nil, fmt.Errorf("openai: base URL not found, set MODEL_AGENT_API_BASE environment variable or provide config.BaseURL")
 		}
 	}
 
@@ -76,23 +73,20 @@ func NewModel(ctx context.Context, modelName string, config *ClientConfig) (mode
 	}
 
 	return &openAIModel{
-		modelName:  modelName,
+		name:       modelName,
 		config:     config,
 		httpClient: httpClient,
 	}, nil
 }
 
-// Name returns the model name.
 func (m *openAIModel) Name() string {
-	return m.modelName
+	return m.name
 }
 
-// GenerateContent calls the underlying OpenAI-compatible API.
 func (m *openAIModel) GenerateContent(ctx context.Context, req *model.LLMRequest, stream bool) iter.Seq2[*model.LLMResponse, error] {
 	m.maybeAppendUserContent(req)
 
-	// Convert genai request to OpenAI format
-	openaiReq, err := m.convertRequest(req)
+	openaiReq, err := m.convertOpenAIRequest(req)
 	if err != nil {
 		return func(yield func(*model.LLMResponse, error) bool) {
 			yield(nil, fmt.Errorf("failed to convert request: %w", err))
@@ -108,17 +102,16 @@ func (m *openAIModel) GenerateContent(ctx context.Context, req *model.LLMRequest
 	return m.generate(ctx, openaiReq)
 }
 
-// OpenAI API types
 type openAIRequest struct {
-	Model          string                `json:"model"`
-	Messages       []openAIMessage       `json:"messages"`
-	Tools          []openAITool          `json:"tools,omitempty"`
-	Temperature    *float64              `json:"temperature,omitempty"`
-	MaxTokens      *int                  `json:"max_tokens,omitempty"`
-	TopP           *float64              `json:"top_p,omitempty"`
-	Stop           []string              `json:"stop,omitempty"`
-	Stream         bool                  `json:"stream,omitempty"`
-	ResponseFormat *openAIResponseFormat `json:"response_format,omitempty"`
+	Model          string          `json:"model"`
+	Messages       []message       `json:"messages"`
+	Tools          []tool          `json:"tools,omitempty"`
+	Temperature    *float64        `json:"temperature,omitempty"`
+	MaxTokens      *int            `json:"max_tokens,omitempty"`
+	TopP           *float64        `json:"top_p,omitempty"`
+	Stop           []string        `json:"stop,omitempty"`
+	Stream         bool            `json:"stream,omitempty"`
+	ResponseFormat *responseFormat `json:"response_format,omitempty"`
 	ExtraBody      map[string]any
 }
 
@@ -149,69 +142,67 @@ func (r openAIRequest) MarshalJSON() ([]byte, error) {
 		topLevel["response_format"] = r.ResponseFormat
 	}
 
-	// 4. 第三步：合并外部 map（ExtraFields）到顶层，同名 key 会覆盖结构体字段
 	if r.ExtraBody != nil {
 		for k, v := range r.ExtraBody {
-			topLevel[k] = v // 外部 map 优先：若 key 相同，外部值覆盖结构体字段
+			topLevel[k] = v
 		}
 	}
 
-	// 5. 序列化顶层 map 为 JSON（带缩进，便于调试）
 	return json.MarshalIndent(topLevel, "", "  ")
 }
 
-type openAIResponseFormat struct {
-	Type string `json:"type"` // "json_object" or "text"
+type responseFormat struct {
+	Type string `json:"type"`
 }
 
-type openAIMessage struct {
-	Role             string           `json:"role"` // system, user, assistant, tools
-	Content          any              `json:"content,omitempty"`
-	ToolCalls        []openAIToolCall `json:"tool_calls,omitempty"`
-	ToolCallID       string           `json:"tool_call_id,omitempty"`
-	ReasoningContent any              `json:"reasoning_content,omitempty"`
+type message struct {
+	Role             string     `json:"role"`
+	Content          any        `json:"content,omitempty"`
+	ToolCalls        []toolCall `json:"tool_calls,omitempty"`
+	ToolCallID       string     `json:"tool_call_id,omitempty"`
+	ReasoningContent any        `json:"reasoning_content,omitempty"`
 }
 
-type openAIToolCall struct {
-	ID       string             `json:"id"`
-	Index    *int               `json:"index,omitempty"`
-	Type     string             `json:"type"` // "function"
-	Function openAIFunctionCall `json:"function"`
+type toolCall struct {
+	ID       string       `json:"id"`
+	Index    *int         `json:"index,omitempty"`
+	Type     string       `json:"type"`
+	Function functionCall `json:"function"`
 }
 
-type openAIFunctionCall struct {
+type functionCall struct {
 	Name      string `json:"name"`
 	Arguments string `json:"arguments"`
 }
 
-type openAITool struct {
-	Type     string         `json:"type"` // "function"
-	Function openAIFunction `json:"function"`
+type tool struct {
+	Type     string   `json:"type"`
+	Function function `json:"function"`
 }
 
-type openAIFunction struct {
+type function struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description,omitempty"`
 	Parameters  map[string]any `json:"parameters,omitempty"`
 }
 
-type openAIResponse struct {
-	ID      string         `json:"id"`
-	Object  string         `json:"object"`
-	Created int64          `json:"created"`
-	Model   string         `json:"model"`
-	Choices []openAIChoice `json:"choices"`
-	Usage   *openAIUsage   `json:"usage,omitempty"`
+type response struct {
+	ID      string   `json:"id"`
+	Object  string   `json:"object"`
+	Created int64    `json:"created"`
+	Model   string   `json:"model"`
+	Choices []choice `json:"choices"`
+	Usage   *usage   `json:"usage,omitempty"`
 }
 
-type openAIChoice struct {
-	Index        int            `json:"index"`
-	Message      *openAIMessage `json:"message,omitempty"`
-	Delta        *openAIMessage `json:"delta,omitempty"`
-	FinishReason string         `json:"finish_reason,omitempty"`
+type choice struct {
+	Index        int      `json:"index"`
+	Message      *message `json:"message,omitempty"`
+	Delta        *message `json:"delta,omitempty"`
+	FinishReason string   `json:"finish_reason,omitempty"`
 }
 
-type openAIUsage struct {
+type usage struct {
 	PromptTokens        int                  `json:"prompt_tokens"`
 	CompletionTokens    int                  `json:"completion_tokens"`
 	TotalTokens         int                  `json:"total_tokens"`
@@ -222,34 +213,30 @@ type promptTokensDetails struct {
 	CachedTokens int `json:"cached_tokens,omitempty"`
 }
 
-// convertRequest converts a model.LLMRequest to OpenAI format
-func (m *openAIModel) convertRequest(req *model.LLMRequest) (*openAIRequest, error) {
+func (m *openAIModel) convertOpenAIRequest(req *model.LLMRequest) (*openAIRequest, error) {
 	openaiReq := &openAIRequest{
-		Model:    m.modelName,
-		Messages: make([]openAIMessage, 0),
+		Model:    m.name,
+		Messages: make([]message, 0),
 	}
 
-	// Add system instruction if present
 	if req.Config != nil && req.Config.SystemInstruction != nil {
 		sysContent := extractTextFromContent(req.Config.SystemInstruction)
 		if sysContent != "" {
-			openaiReq.Messages = append(openaiReq.Messages, openAIMessage{
+			openaiReq.Messages = append(openaiReq.Messages, message{
 				Role:    "system",
 				Content: sysContent,
 			})
 		}
 	}
 
-	// Convert contents to messages
 	for _, content := range req.Contents {
-		msgs, err := m.convertContent(content)
+		msgs, err := m.convertGenAIContent(content)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert content: %w", err)
 		}
 		openaiReq.Messages = append(openaiReq.Messages, msgs...)
 	}
 
-	// Convert tools
 	if req.Config != nil && len(req.Config.Tools) > 0 {
 		for _, tool := range req.Config.Tools {
 			if tool.FunctionDeclarations != nil {
@@ -260,7 +247,6 @@ func (m *openAIModel) convertRequest(req *model.LLMRequest) (*openAIRequest, err
 		}
 	}
 
-	// Add generation config
 	if req.Config != nil {
 		if req.Config.Temperature != nil {
 			temp := float64(*req.Config.Temperature)
@@ -278,15 +264,14 @@ func (m *openAIModel) convertRequest(req *model.LLMRequest) (*openAIRequest, err
 			openaiReq.Stop = req.Config.StopSequences
 		}
 		if req.Config.ResponseMIMEType == "application/json" {
-			openaiReq.ResponseFormat = &openAIResponseFormat{Type: "json_object"}
+			openaiReq.ResponseFormat = &responseFormat{Type: "json_object"}
 		}
 	}
 
 	return openaiReq, nil
 }
 
-// convertContent converts genai.Content to OpenAI messages
-func (m *openAIModel) convertContent(content *genai.Content) ([]openAIMessage, error) {
+func (m *openAIModel) convertGenAIContent(content *genai.Content) ([]message, error) {
 	if content == nil || len(content.Parts) == 0 {
 		return nil, nil
 	}
@@ -296,8 +281,7 @@ func (m *openAIModel) convertContent(content *genai.Content) ([]openAIMessage, e
 		role = "assistant"
 	}
 
-	// Check if this is a tools response
-	var toolMessages []openAIMessage
+	var toolMessages []message
 	for _, part := range content.Parts {
 		if part.FunctionResponse != nil {
 			responseJSON, err := json.Marshal(part.FunctionResponse.Response)
@@ -308,7 +292,7 @@ func (m *openAIModel) convertContent(content *genai.Content) ([]openAIMessage, e
 			if toolCallID == "" {
 				toolCallID = "call_" + uuid.New().String()[:8]
 			}
-			toolMessages = append(toolMessages, openAIMessage{
+			toolMessages = append(toolMessages, message{
 				Role:       "tool",
 				Content:    string(responseJSON),
 				ToolCallID: toolCallID,
@@ -319,16 +303,14 @@ func (m *openAIModel) convertContent(content *genai.Content) ([]openAIMessage, e
 		return toolMessages, nil
 	}
 
-	// Build message content
 	var textParts []string
 	var contentArray []map[string]any
-	var toolCalls []openAIToolCall
+	var toolCalls []toolCall
 
 	for _, part := range content.Parts {
 		if part.Text != "" {
 			textParts = append(textParts, part.Text)
 		} else if part.InlineData != nil && len(part.InlineData.Data) > 0 {
-			// Handle inline data (images, video, audio, files, etc.)
 			mimeType := part.InlineData.MIMEType
 			base64Data := base64.StdEncoding.EncodeToString(part.InlineData.Data)
 			dataURI := fmt.Sprintf("data:%s;base64,%s", mimeType, base64Data)
@@ -365,7 +347,6 @@ func (m *openAIModel) convertContent(content *genai.Content) ([]openAIMessage, e
 				textParts = append(textParts, string(part.InlineData.Data))
 			}
 		} else if part.FileData != nil && part.FileData.FileURI != "" {
-			// Handle file data with URI
 			contentArray = append(contentArray, map[string]any{
 				"type": "file",
 				"file": map[string]any{
@@ -381,10 +362,10 @@ func (m *openAIModel) convertContent(content *genai.Content) ([]openAIMessage, e
 			if callID == "" {
 				callID = "call_" + uuid.New().String()[:8]
 			}
-			toolCalls = append(toolCalls, openAIToolCall{
+			toolCalls = append(toolCalls, toolCall{
 				ID:   callID,
 				Type: "function",
-				Function: openAIFunctionCall{
+				Function: functionCall{
 					Name:      part.FunctionCall.Name,
 					Arguments: string(argsJSON),
 				},
@@ -392,7 +373,7 @@ func (m *openAIModel) convertContent(content *genai.Content) ([]openAIMessage, e
 		}
 	}
 
-	msg := openAIMessage{Role: role}
+	msg := message{Role: role}
 
 	if len(toolCalls) > 0 {
 		msg.ToolCalls = toolCalls
@@ -400,7 +381,6 @@ func (m *openAIModel) convertContent(content *genai.Content) ([]openAIMessage, e
 			msg.Content = strings.Join(textParts, "\n")
 		}
 	} else if len(contentArray) > 0 {
-		// Add text parts to content array
 		textMaps := make([]map[string]any, len(textParts))
 		for i, text := range textParts {
 			textMaps[i] = map[string]any{
@@ -413,10 +393,9 @@ func (m *openAIModel) convertContent(content *genai.Content) ([]openAIMessage, e
 		msg.Content = strings.Join(textParts, "\n")
 	}
 
-	return []openAIMessage{msg}, nil
+	return []message{msg}, nil
 }
 
-// extractTextFromContent extracts and concatenates all text parts from a genai.Content.
 func extractTextFromContent(content *genai.Content) string {
 	if content == nil {
 		return ""
@@ -430,13 +409,12 @@ func extractTextFromContent(content *genai.Content) string {
 	return strings.Join(texts, "\n")
 }
 
-// convertFunctionDeclaration converts a genai.FunctionDeclaration to OpenAI tools format.
-func convertFunctionDeclaration(fn *genai.FunctionDeclaration) openAITool {
+func convertFunctionDeclaration(fn *genai.FunctionDeclaration) tool {
 	params := convertFunctionParameters(fn)
 
-	return openAITool{
+	return tool{
 		Type: "function",
-		Function: openAIFunction{
+		Function: function{
 			Name:        fn.Name,
 			Description: fn.Description,
 			Parameters:  params,
@@ -444,17 +422,13 @@ func convertFunctionDeclaration(fn *genai.FunctionDeclaration) openAITool {
 	}
 }
 
-// convertFunctionParameters extracts parameters from a FunctionDeclaration.
-// It prefers ParametersJsonSchema (new standard) over Parameters (legacy).
 func convertFunctionParameters(fn *genai.FunctionDeclaration) map[string]any {
-	// Try ParametersJsonSchema first (new standard used by functiontool)
 	if fn.ParametersJsonSchema != nil {
 		if params := tryConvertJsonSchema(fn.ParametersJsonSchema); params != nil {
 			return params
 		}
 	}
 
-	// Fallback to Parameters (legacy format used by older code)
 	if fn.Parameters != nil {
 		return convertLegacyParameters(fn.Parameters)
 	}
@@ -462,15 +436,11 @@ func convertFunctionParameters(fn *genai.FunctionDeclaration) map[string]any {
 	return make(map[string]any)
 }
 
-// tryConvertJsonSchema attempts to convert ParametersJsonSchema to map[string]any.
-// Returns nil if conversion fails.
 func tryConvertJsonSchema(schema any) map[string]any {
-	// Fast path: already a map
 	if params, ok := schema.(map[string]any); ok {
 		return params
 	}
 
-	// Slow path: convert via JSON marshaling (handles *jsonschema.Schema, etc.)
 	jsonBytes, err := json.Marshal(schema)
 	if err != nil {
 		return nil
@@ -484,7 +454,6 @@ func tryConvertJsonSchema(schema any) map[string]any {
 	return params
 }
 
-// convertLegacyParameters converts genai.Schema to OpenAI parameters format.
 func convertLegacyParameters(schema *genai.Schema) map[string]any {
 	params := map[string]any{
 		"type": "object",
@@ -505,7 +474,6 @@ func convertLegacyParameters(schema *genai.Schema) map[string]any {
 	return params
 }
 
-// schemaToMap recursively converts a genai.Schema to a map representation.
 func schemaToMap(schema *genai.Schema) map[string]any {
 	result := make(map[string]any)
 	if schema.Type != genai.TypeUnspecified {
@@ -530,7 +498,6 @@ func schemaToMap(schema *genai.Schema) map[string]any {
 	return result
 }
 
-// generate performs a non-streaming API call
 func (m *openAIModel) generate(ctx context.Context, openaiReq *openAIRequest) iter.Seq2[*model.LLMResponse, error] {
 	return func(yield func(*model.LLMResponse, error) bool) {
 		resp, err := m.doRequest(ctx, openaiReq)
@@ -548,7 +515,6 @@ func (m *openAIModel) generate(ctx context.Context, openaiReq *openAIRequest) it
 	}
 }
 
-// generateStream performs a streaming API call
 func (m *openAIModel) generateStream(ctx context.Context, openaiReq *openAIRequest) iter.Seq2[*model.LLMResponse, error] {
 	openaiReq.Stream = true
 
@@ -562,8 +528,8 @@ func (m *openAIModel) generateStream(ctx context.Context, openaiReq *openAIReque
 
 		scanner := bufio.NewScanner(httpResp.Body)
 		var textBuffer strings.Builder
-		var toolCalls []openAIToolCall
-		var usage *openAIUsage
+		var toolCalls []toolCall
+		var usage *usage
 
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -576,7 +542,7 @@ func (m *openAIModel) generateStream(ctx context.Context, openaiReq *openAIReque
 				break
 			}
 
-			var chunk openAIResponse
+			var chunk response
 			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 				continue
 			}
@@ -591,11 +557,9 @@ func (m *openAIModel) generateStream(ctx context.Context, openaiReq *openAIReque
 				continue
 			}
 
-			// Handle text content
 			if delta.Content != nil {
 				if text, ok := delta.Content.(string); ok && text != "" {
 					textBuffer.WriteString(text)
-					// Yield partial response
 					llmResp := &model.LLMResponse{
 						Content: &genai.Content{
 							Role: "model",
@@ -611,16 +575,14 @@ func (m *openAIModel) generateStream(ctx context.Context, openaiReq *openAIReque
 				}
 			}
 
-			// Handle tools calls
 			if len(delta.ToolCalls) > 0 {
 				for idx, tc := range delta.ToolCalls {
 					targetIdx := idx
 					if tc.Index != nil {
 						targetIdx = *tc.Index
 					}
-					// Ensure we have enough space in toolCalls slice
 					for len(toolCalls) <= targetIdx {
-						toolCalls = append(toolCalls, openAIToolCall{})
+						toolCalls = append(toolCalls, toolCall{})
 					}
 					if tc.ID != "" {
 						toolCalls[targetIdx].ID = tc.ID
@@ -635,12 +597,10 @@ func (m *openAIModel) generateStream(ctx context.Context, openaiReq *openAIReque
 				}
 			}
 
-			// Handle usage
 			if chunk.Usage != nil {
 				usage = chunk.Usage
 			}
 
-			// Handle finish
 			if choice.FinishReason != "" {
 				finalResp := m.buildFinalResponse(textBuffer.String(), toolCalls, usage, choice.FinishReason)
 				yield(finalResp, nil)
@@ -653,8 +613,6 @@ func (m *openAIModel) generateStream(ctx context.Context, openaiReq *openAIReque
 			return
 		}
 
-		// Fallback: if stream ended without FinishReason but we have accumulated content,
-		// send the final response. This handles non-compliant OpenAI-compatible APIs.
 		if textBuffer.Len() > 0 || len(toolCalls) > 0 {
 			finalResp := m.buildFinalResponse(textBuffer.String(), toolCalls, usage, "stop")
 			yield(finalResp, nil)
@@ -662,8 +620,6 @@ func (m *openAIModel) generateStream(ctx context.Context, openaiReq *openAIReque
 	}
 }
 
-// sendRequest creates and sends an HTTP request to the OpenAI API.
-// Caller is responsible for closing the response body.
 func (m *openAIModel) sendRequest(ctx context.Context, openaiReq *openAIRequest) (*http.Response, error) {
 	reqBody, err := openaiReq.MarshalJSON()
 	if err != nil {
@@ -678,8 +634,6 @@ func (m *openAIModel) sendRequest(ctx context.Context, openaiReq *openAIRequest)
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+m.config.APIKey)
-	//bodyStr, _ := json.Marshal(map[string]any{"thinking": map[string]string{"type": "disabled"}})
-	//httpReq.Header.Set("extra_body", string(bodyStr))
 	httpResp, err := m.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
@@ -694,15 +648,14 @@ func (m *openAIModel) sendRequest(ctx context.Context, openaiReq *openAIRequest)
 	return httpResp, nil
 }
 
-// doRequest performs the HTTP request to the OpenAI API
-func (m *openAIModel) doRequest(ctx context.Context, openaiReq *openAIRequest) (*openAIResponse, error) {
+func (m *openAIModel) doRequest(ctx context.Context, openaiReq *openAIRequest) (*response, error) {
 	httpResp, err := m.sendRequest(ctx, openaiReq)
 	if err != nil {
 		return nil, err
 	}
 	defer httpResp.Body.Close()
 
-	var resp openAIResponse
+	var resp response
 	if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -710,8 +663,7 @@ func (m *openAIModel) doRequest(ctx context.Context, openaiReq *openAIRequest) (
 	return &resp, nil
 }
 
-// convertResponse converts OpenAI response to model.LLMResponse
-func (m *openAIModel) convertResponse(resp *openAIResponse) (*model.LLMResponse, error) {
+func (m *openAIModel) convertResponse(resp *response) (*model.LLMResponse, error) {
 	if len(resp.Choices) == 0 {
 		return nil, fmt.Errorf("no choices in response")
 	}
@@ -724,12 +676,10 @@ func (m *openAIModel) convertResponse(resp *openAIResponse) (*model.LLMResponse,
 
 	var parts []*genai.Part
 
-	// Handle reasoning content (thought process) - prepend before regular content
 	if reasoningParts := extractReasoningParts(msg.ReasoningContent); len(reasoningParts) > 0 {
 		parts = append(parts, reasoningParts...)
 	}
 
-	// Get tools calls - either from structured response or parsed from text
 	toolCalls := msg.ToolCalls
 	textContent := ""
 	if msg.Content != nil {
@@ -738,7 +688,6 @@ func (m *openAIModel) convertResponse(resp *openAIResponse) (*model.LLMResponse,
 		}
 	}
 
-	// If no structured tools calls, try parsing from text content
 	if len(toolCalls) == 0 && textContent != "" {
 		parsedCalls, remainder := parseToolCallsFromText(textContent)
 		if len(parsedCalls) > 0 {
@@ -747,12 +696,10 @@ func (m *openAIModel) convertResponse(resp *openAIResponse) (*model.LLMResponse,
 		}
 	}
 
-	// Handle text content
 	if textContent != "" {
 		parts = append(parts, genai.NewPartFromText(textContent))
 	}
 
-	// Handle tools calls
 	for _, tc := range toolCalls {
 		if tc.ID == "" && tc.Function.Name == "" && tc.Function.Arguments == "" {
 			continue
@@ -773,16 +720,13 @@ func (m *openAIModel) convertResponse(resp *openAIResponse) (*model.LLMResponse,
 		},
 	}
 
-	// Add usage metadata
 	llmResp.UsageMetadata = buildUsageMetadata(resp.Usage)
-
-	// Map finish reason
 	llmResp.FinishReason = mapFinishReason(choice.FinishReason)
 
 	return llmResp, nil
 }
 
-func (m *openAIModel) buildFinalResponse(text string, toolCalls []openAIToolCall, usage *openAIUsage, finishReason string) *model.LLMResponse {
+func (m *openAIModel) buildFinalResponse(text string, toolCalls []toolCall, usage *usage, finishReason string) *model.LLMResponse {
 	var parts []*genai.Part
 
 	if text != "" {
@@ -814,8 +758,7 @@ func (m *openAIModel) buildFinalResponse(text string, toolCalls []openAIToolCall
 	return llmResp
 }
 
-// buildUsageMetadata converts OpenAI usage data to genai usage metadata.
-func buildUsageMetadata(usage *openAIUsage) *genai.GenerateContentResponseUsageMetadata {
+func buildUsageMetadata(usage *usage) *genai.GenerateContentResponseUsageMetadata {
 	if usage == nil {
 		return nil
 	}
@@ -824,15 +767,12 @@ func buildUsageMetadata(usage *openAIUsage) *genai.GenerateContentResponseUsageM
 		CandidatesTokenCount: int32(usage.CompletionTokens),
 		TotalTokenCount:      int32(usage.TotalTokens),
 	}
-	// Add cached token count if available
 	if usage.PromptTokensDetails != nil {
 		metadata.CachedContentTokenCount = int32(usage.PromptTokensDetails.CachedTokens)
 	}
 	return metadata
 }
 
-// extractReasoningParts extracts reasoning/thought content from provider-specific payloads.
-// It converts various reasoning formats (string, list, map) into genai.Part with Thought=true.
 func extractReasoningParts(reasoningContent any) []*genai.Part {
 	if reasoningContent == nil {
 		return nil
@@ -843,7 +783,6 @@ func extractReasoningParts(reasoningContent any) []*genai.Part {
 	return parts
 }
 
-// extractTexts recursively extracts text from reasoning content and creates thought parts.
 func extractTexts(value any, parts *[]*genai.Part) {
 	if value == nil {
 		return
@@ -859,7 +798,6 @@ func extractTexts(value any, parts *[]*genai.Part) {
 			extractTexts(item, parts)
 		}
 	case map[string]any:
-		// LiteLLM/OpenAI nests reasoning text under known keys
 		for _, key := range []string{"text", "content", "reasoning", "reasoning_content"} {
 			if text, ok := v[key].(string); ok && text != "" {
 				*parts = append(*parts, &genai.Part{Text: text, Thought: true})
@@ -868,15 +806,12 @@ func extractTexts(value any, parts *[]*genai.Part) {
 	}
 }
 
-// parseToolCallsFromText extracts inline JSON tools calls from text responses.
-// Some models embed tools calls as JSON objects in their text output.
-// Returns the extracted tools calls and any remaining text.
-func parseToolCallsFromText(text string) ([]openAIToolCall, string) {
+func parseToolCallsFromText(text string) ([]toolCall, string) {
 	if text == "" {
 		return nil, ""
 	}
 
-	var toolCalls []openAIToolCall
+	var toolCalls []toolCall
 	var remainder strings.Builder
 	cursor := 0
 
@@ -890,7 +825,6 @@ func parseToolCallsFromText(text string) ([]openAIToolCall, string) {
 
 		remainder.WriteString(text[cursor:braceIndex])
 
-		// Try to parse JSON starting at brace
 		var candidate map[string]any
 		decoder := json.NewDecoder(strings.NewReader(text[braceIndex:]))
 		if err := decoder.Decode(&candidate); err != nil {
@@ -899,10 +833,8 @@ func parseToolCallsFromText(text string) ([]openAIToolCall, string) {
 			continue
 		}
 
-		// Calculate end position
 		endPos := braceIndex + int(decoder.InputOffset())
 
-		// Check if this looks like a tools call
 		name, hasName := candidate["name"].(string)
 		args, hasArgs := candidate["arguments"]
 		if hasName && hasArgs {
@@ -921,10 +853,10 @@ func parseToolCallsFromText(text string) ([]openAIToolCall, string) {
 				callID = id
 			}
 
-			toolCalls = append(toolCalls, openAIToolCall{
+			toolCalls = append(toolCalls, toolCall{
 				ID:   callID,
 				Type: "function",
-				Function: openAIFunctionCall{
+				Function: functionCall{
 					Name:      name,
 					Arguments: argsStr,
 				},
@@ -938,9 +870,6 @@ func parseToolCallsFromText(text string) ([]openAIToolCall, string) {
 	return toolCalls, strings.TrimSpace(remainder.String())
 }
 
-// mapFinishReason maps OpenAI finish_reason strings to genai.FinishReason values.
-// Note: tool_calls and function_call map to STOP because tools calls represent
-// normal completion where the model stopped to invoke tools.
 func mapFinishReason(reason string) genai.FinishReason {
 	switch reason {
 	case "stop":
@@ -956,7 +885,6 @@ func mapFinishReason(reason string) genai.FinishReason {
 	}
 }
 
-// maybeAppendUserContent appends a user content, so that model can continue to output.
 func (m *openAIModel) maybeAppendUserContent(req *model.LLMRequest) {
 	if len(req.Contents) == 0 {
 		req.Contents = append(req.Contents, genai.NewContentFromText("Handle the requests as specified in the System Instruction.", "user"))

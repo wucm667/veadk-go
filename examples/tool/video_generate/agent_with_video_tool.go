@@ -26,7 +26,6 @@ import (
 	"github.com/volcengine/veadk-go/common"
 	"github.com/volcengine/veadk-go/tool/builtin_tools"
 	"google.golang.org/adk/agent"
-	"google.golang.org/adk/agent/llmagent"
 	"google.golang.org/adk/artifact"
 	"google.golang.org/adk/cmd/launcher"
 	"google.golang.org/adk/cmd/launcher/full"
@@ -71,22 +70,17 @@ func main() {
 		ModelAPIBase: common.DEFAULT_MODEL_AGENT_API_BASE,
 		ModelAPIKey:  os.Getenv(common.MODEL_AGENT_API_KEY),
 	}
-	cfg.Name = "image_generate_tool_agent"
-	cfg.Description = "Agent to generate images based on text descriptions or images."
-	cfg.Instruction = "I can generate images based on text descriptions or images."
-	cfg.AfterModelCallbacks = []llmagent.AfterModelCallback{saveReportfunc}
-
-	imageGenerate, err := builtin_tools.NewImageGenerateTool(&builtin_tools.ImageGenerateConfig{
-		ModelName: common.DEFAULT_MODEL_IMAGE_NAME,
-		BaseURL:   common.DEFAULT_MODEL_IMAGE_API_BASE,
-		APIKey:    os.Getenv(common.MODEL_IMAGE_API_KEY),
+	videoGenerate, err := builtin_tools.NewVideoGenerateTool(&builtin_tools.VideoGenerateConfig{
+		ModelName: common.DEFAULT_MODEL_VIDEO_NAME,
+		BaseURL:   common.DEFAULT_MODEL_VIDEO_API_BASE,
+		APIKey:    os.Getenv(common.MODEL_VIDEO_API_KEY),
 	})
 	if err != nil {
 		fmt.Printf("NewLLMAgent failed: %v", err)
 		return
 	}
 
-	cfg.Tools = []tool.Tool{imageGenerate}
+	cfg.Tools = []tool.Tool{videoGenerate}
 
 	sessionService := session.InMemoryService()
 	rootAgent, err := veagent.New(cfg)

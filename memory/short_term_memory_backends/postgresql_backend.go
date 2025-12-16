@@ -39,7 +39,6 @@ func NewPostgreSqlSTMBackend(config *PostgresqlBackendConfig) (session.Service, 
 
 	if config.DBUrl != "" {
 		log.Info("DbURL is set, ignore backend option")
-		// 检查DbURL格式（多@/:符号警告）
 		if strings.Count(config.DBUrl, "@") > 1 || strings.Count(config.DBUrl, ":") > 3 {
 			log.Warn(
 				"Multiple `@` or `:` symbols detected in the database URL. " +

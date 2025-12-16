@@ -50,7 +50,6 @@ func NewLogger(level zapcore.Level) *Logger {
 		}
 	}
 
-	// 配置日志格式（文本或 JSON）
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:        "ts",
 		LevelKey:       "level",
@@ -65,7 +64,6 @@ func NewLogger(level zapcore.Level) *Logger {
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 
-	// 输出到stdout
 	writeSyncer := zapcore.AddSync(os.Stdout)
 
 	core := zapcore.NewCore(
@@ -139,7 +137,6 @@ func (l *Logger) Trace(ctx context.Context, begin time.Time, fc func() (sql stri
 func (l *Logger) Debug(ctx context.Context, msg string, args ...interface{}) {
 	fields, err := toZapFields(args...)
 	if err != nil {
-		// 若参数解析出错，添加错误信息并继续输出日志
 		l.logger.Debug(msg, append(fields, zap.Error(err))...)
 		return
 	}
@@ -149,7 +146,6 @@ func (l *Logger) Debug(ctx context.Context, msg string, args ...interface{}) {
 func Debug(msg string, args ...interface{}) {
 	fields, err := toZapFields(args...)
 	if err != nil {
-		// 若参数解析出错，添加错误信息并继续输出日志
 		gLogger.logger.Debug(msg, append(fields, zap.Error(err))...)
 		return
 	}
@@ -159,7 +155,6 @@ func Debug(msg string, args ...interface{}) {
 func (l *Logger) Info(ctx context.Context, msg string, args ...interface{}) {
 	fields, err := toZapFields(args...)
 	if err != nil {
-		// 若参数解析出错，添加错误信息并继续输出日志
 		l.logger.Info(msg, append(fields, zap.Error(err))...)
 		return
 	}
@@ -169,7 +164,6 @@ func (l *Logger) Info(ctx context.Context, msg string, args ...interface{}) {
 func Info(msg string, args ...interface{}) {
 	fields, err := toZapFields(args...)
 	if err != nil {
-		// 若参数解析出错，添加错误信息并继续输出日志
 		gLogger.logger.Info(msg, append(fields, zap.Error(err))...)
 		return
 	}
@@ -179,7 +173,6 @@ func Info(msg string, args ...interface{}) {
 func (l *Logger) Warn(ctx context.Context, msg string, args ...interface{}) {
 	fields, err := toZapFields(args...)
 	if err != nil {
-		// 若参数解析出错，添加错误信息并继续输出日志
 		l.logger.Warn(msg, append(fields, zap.Error(err))...)
 		return
 	}
@@ -189,7 +182,6 @@ func (l *Logger) Warn(ctx context.Context, msg string, args ...interface{}) {
 func Warn(msg string, args ...interface{}) {
 	fields, err := toZapFields(args...)
 	if err != nil {
-		// 若参数解析出错，添加错误信息并继续输出日志
 		gLogger.logger.Warn(msg, append(fields, zap.Error(err))...)
 		return
 	}
@@ -199,7 +191,6 @@ func Warn(msg string, args ...interface{}) {
 func (l *Logger) Error(ctx context.Context, msg string, args ...interface{}) {
 	fields, err := toZapFields(args...)
 	if err != nil {
-		// 若参数解析出错，添加错误信息并继续输出日志
 		l.logger.Error(msg, append(fields, zap.Error(err))...)
 		return
 	}
@@ -209,14 +200,12 @@ func (l *Logger) Error(ctx context.Context, msg string, args ...interface{}) {
 func Error(msg string, args ...interface{}) {
 	fields, err := toZapFields(args...)
 	if err != nil {
-		// 若参数解析出错，添加错误信息并继续输出日志
 		gLogger.logger.Error(msg, append(fields, zap.Error(err))...)
 		return
 	}
 	gLogger.logger.Error(msg, fields...)
 }
 
-// toZapFields 将键值对参数转换为 []zap.Field
 func toZapFields(args ...interface{}) ([]zapcore.Field, error) {
 	var fields []zapcore.Field
 	if len(args)%2 != 0 {
@@ -235,14 +224,12 @@ func toZapFields(args ...interface{}) ([]zapcore.Field, error) {
 	return fields, nil
 }
 
-// toZapField 根据 value 类型转换为对应的 zap.Field
 func toZapField(key string, value interface{}) zapcore.Field {
 	if value == nil {
 		return zap.String(key, "nil")
 	}
 
 	val := reflect.ValueOf(value)
-	// 解引用指针
 	for val.Kind() == reflect.Ptr {
 		if val.IsNil() {
 			return zap.String(key, "nil")
@@ -250,12 +237,10 @@ func toZapField(key string, value interface{}) zapcore.Field {
 		val = val.Elem()
 	}
 
-	// 处理 error 类型（优先于 interface 类型）
 	if err, ok := value.(error); ok {
 		return zap.Error(err)
 	}
 
-	// 根据类型转换为对应 zap.Field
 	switch val.Kind() {
 	case reflect.String:
 		return zap.String(key, val.String())
@@ -268,12 +253,12 @@ func toZapField(key string, value interface{}) zapcore.Field {
 	case reflect.Bool:
 		return zap.Bool(key, val.Bool())
 	case reflect.Slice, reflect.Array:
-		return zap.Any(key, value) // 切片/数组用 Any 处理
+		return zap.Any(key, value)
 	case reflect.Map:
-		return zap.Any(key, value) // 映射用 Any 处理
+		return zap.Any(key, value)
 	case reflect.Struct:
-		return zap.Any(key, value) // 结构体用 Any 处理
+		return zap.Any(key, value)
 	default:
-		return zap.Any(key, value) // 其他类型默认用 Any
+		return zap.Any(key, value)
 	}
 }

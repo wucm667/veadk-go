@@ -27,11 +27,6 @@ type mockSessionServiceImpl struct {
 	session.Service
 }
 
-// mockSessionImpl 是 session.Session 接口的 mock 实现
-type mockSessionImpl struct {
-	session.Session
-}
-
 func TestNewShortTermMemory(t *testing.T) {
 	tests := []struct {
 		name    string

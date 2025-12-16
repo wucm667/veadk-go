@@ -60,7 +60,7 @@ func New(cfg *Config) (agent.Agent, error) {
 		if cfg.ModelAPIBase == "" {
 			cfg.ModelAPIBase = utils.GetEnvWithDefault(common.MODEL_AGENT_API_BASE, configs.GetGlobalConfig().Model.Agent.ApiBase, common.DEFAULT_MODEL_AGENT_API_BASE)
 		}
-		veModel, err := model.NewModel(
+		veModel, err := model.NewOpenAIModel(
 			context.Background(),
 			cfg.ModelName,
 			&model.ClientConfig{
