@@ -67,7 +67,7 @@ func GetLocationWeather(city string) map[string]string {
 }
 
 type GetCityWeatherArgs struct {
-	City string `json:"city" jsonschema:"The target city name"`
+	City string `json:"city" jsonschema:"The target city name which must be in English"`
 }
 
 func GetCityWeatherTool() (tool.Tool, error) {
@@ -76,7 +76,7 @@ func GetCityWeatherTool() (tool.Tool, error) {
 	}
 	return functiontool.New(
 		functiontool.Config{
-			Name: "get city weather",
+			Name: "get_city_weather",
 			Description: `A tools for querying real-time weather information.
 Args:
 	city: The target city name.
