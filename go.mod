@@ -12,8 +12,8 @@ require (
 	github.com/volcengine/volc-sdk-golang v1.0.229
 	github.com/volcengine/volcengine-go-sdk v1.1.53
 	go.uber.org/zap v1.27.1
-	google.golang.org/adk v0.2.0
-	google.golang.org/genai v1.36.0
+	google.golang.org/adk v0.3.0
+	google.golang.org/genai v1.40.0
 	gopkg.in/go-playground/validator.v8 v8.18.2
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/postgres v1.6.0
@@ -24,7 +24,7 @@ require (
 	cloud.google.com/go v0.123.0 // indirect
 	cloud.google.com/go/auth v0.17.0 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
-	github.com/a2aproject/a2a-go v0.3.0 // indirect
+	github.com/a2aproject/a2a-go v0.3.3 // indirect
 	github.com/awalterschulze/gographviz v2.0.3+incompatible // indirect
 	github.com/bytedance/sonic v1.14.2 // indirect
 	github.com/bytedance/sonic/loader v0.4.0 // indirect
