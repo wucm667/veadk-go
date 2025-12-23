@@ -35,6 +35,9 @@ const (
 )
 
 const DEFAULT_LLMAGENT_NAME = "veAgent"
+const DEFAULT_LOOPAGENT_NAME = "veLoopAgent"
+const DEFAULT_PARALLELAGENT_NAME = "veParallelAgent"
+const DEFAULT_SEQUENTIALAGENT_NAME = "veSequentialAgent"
 
 const VEFAAS_IAM_CRIDENTIAL_PATH = "/var/run/secrets/iam/credential"
 
