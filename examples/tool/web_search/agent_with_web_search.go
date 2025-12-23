@@ -24,10 +24,10 @@ import (
 	"github.com/volcengine/veadk-go/common"
 	"github.com/volcengine/veadk-go/tool/builtin_tools/web_search"
 	"google.golang.org/adk/agent"
-	"google.golang.org/adk/runner"
+	"google.golang.org/adk/cmd/launcher"
+	"google.golang.org/adk/cmd/launcher/full"
 	"google.golang.org/adk/session"
 	"google.golang.org/adk/tool"
-	"google.golang.org/genai"
 )
 
 func main() {
@@ -52,46 +52,13 @@ func main() {
 		return
 	}
 
-	sessionService := session.InMemoryService()
-	runner, err := runner.New(runner.Config{
-		AppName:        "weather_sentiment_agent",
-		Agent:          a,
-		SessionService: sessionService,
-	})
-	if err != nil {
-		log.Fatal(err)
+	config := &launcher.Config{
+		AgentLoader:    agent.NewSingleLoader(a),
+		SessionService: session.InMemoryService(),
 	}
 
-	session, err := sessionService.Create(ctx, &session.CreateRequest{
-		AppName: "weather_sentiment_agent",
-		UserID:  "user1234",
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	run(ctx, runner, session.Session.ID(), "How is the weather in beijing today")
-
-}
-
-func run(ctx context.Context, r *runner.Runner, sessionID string, prompt string) {
-	fmt.Printf("\n> %s\n", prompt)
-	events := r.Run(
-		ctx,
-		"user1234",
-		sessionID,
-		genai.NewContentFromText(prompt, genai.RoleUser),
-		agent.RunConfig{
-			StreamingMode: agent.StreamingModeNone,
-		},
-	)
-	for event, err := range events {
-		if err != nil {
-			log.Fatalf("ERROR during agent execution: %v", err)
-		}
-
-		if event.Content.Parts[0].Text != "" {
-			fmt.Printf("Agent Response: %s\n", event.Content.Parts[0].Text)
-		}
+	l := full.NewLauncher()
+	if err = l.Execute(ctx, config, os.Args[1:]); err != nil {
+		log.Fatalf("Run failed: %v\n\n%s", err, l.CommandLineSyntax())
 	}
 }
